@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DB Blueprint — Profiles</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8e8f0;--text2:#8888a8;--text3:#4a4a68;--accent:#6c63ff;--accent2:#a78bfa;--glow:rgba(108,99,255,0.18);--green:#22d3a0;--gdim:rgba(34,211,160,0.12);--amber:#f59e0b;--adim:rgba(245,158,11,0.12);--red:#f87171;--rdim:rgba(248,113,113,0.12);--r:10px;--rl:16px}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(108,99,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.topbar{position:sticky;top:0;z-index:20;height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px}
+.topbar h1{font-size:15px;font-weight:800;letter-spacing:-.5px}.topbar h1 span{color:var(--accent2)}
+.back{margin-left:auto;font-size:12px;color:var(--text3);text-decoration:none;font-family:'JetBrains Mono',monospace;padding:6px 12px;border:1px solid var(--border);border-radius:6px;transition:all .2s}
+.back:hover{color:var(--text);border-color:var(--border2)}
+.w{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
+/* Left: list */
+.list-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.list-head h2{font-size:14px;font-weight:700}
+.btn{padding:9px 16px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--bg4)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#7c74ff}.btn-sm{padding:5px 10px;font-size:11px}
+.btn-red{background:var(--rdim);border-color:rgba(248,113,113,.3);color:var(--red)}
+.btn-red:hover{background:rgba(248,113,113,.2)}
+.prof-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;transition:all .2s;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;position:relative}
+.prof-card:hover{border-color:var(--border2)}.prof-card.active{border-color:var(--accent);background:var(--bg3)}
+.prof-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.prof-name{font-size:13px;font-weight:700}.prof-meta{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:3px}
+.prof-actions{margin-left:auto;display:flex;gap:6px;opacity:0;transition:opacity .2s}
+.prof-card:hover .prof-actions{opacity:1}
+.icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg4);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .15s;color:var(--text2)}
+.icon-btn:hover{border-color:var(--border2);color:var(--text)}
+.fav{color:var(--amber)!important}
+.empty-list{padding:40px 20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl)}
+/* Right: form */
+.form-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.form-panel-h{padding:18px 22px;border-bottom:1px solid var(--border)}
+.form-panel-h h2{font-size:15px;font-weight:700}.form-panel-h p{font-size:13px;color:var(--text2);margin-top:4px}
+.form-body{padding:22px}
+.sec-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.db-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.db-card{padding:12px 8px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);cursor:pointer;text-align:center;transition:all .2s}
+.db-card:hover{border-color:var(--border2)}.db-card.sel{border-color:var(--accent);background:var(--glow)}
+.db-card .di{font-size:20px;margin-bottom:4px}.db-card .dn{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.db-card.sel .dn{color:var(--accent2)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid-1{margin-bottom:12px}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field input,.field select{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--accent)}.field input::placeholder{color:var(--text3)}
+.field select option{background:var(--bg3)}
+.color-row{display:flex;gap:8px;margin-bottom:4px}
+.color-dot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-dot.sel{border-color:#fff;transform:scale(1.15)}
+.btn-row{display:flex;gap:10px;margin-top:20px;align-items:center}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.conn-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid transparent;transition:all .3s}
+.cb-idle{background:var(--bg4);color:var(--text3);border-color:var(--border)}
+.cb-ok{background:var(--gdim);color:var(--green);border-color:rgba(34,211,160,.3)}
+.cb-err{background:var(--rdim);color:var(--red);border-color:rgba(248,113,113,.3)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+@keyframes spin{to{transform:rotate(360deg)}}.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.alert{padding:11px 14px;border-radius:var(--r);font-size:13px;border:1px solid}
+.alert-ok{background:var(--gdim);border-color:rgba(34,211,160,.3);color:var(--green)}
+.alert-warn{background:var(--adim);border-color:rgba(245,158,11,.3);color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="topbar"><span>🔬</span><h1>DB <span>Blueprint</span></h1><a href="/" class="back">← Dashboard</a></div>
+<div class="w">
+  <div class="layout">
+    <!-- Left -->
+    <div>
+      <div class="list-head"><h2>Connection profiles</h2><button class="btn btn-primary btn-sm" onclick="newProfile()">+ New</button></div>
+      <div id="prof-list"><div class="empty-list">Loading…</div></div>
+    </div>
+    <!-- Right -->
+    <div class="form-panel">
+      <div class="form-panel-h"><h2 id="form-title">New connection profile</h2><p id="form-sub">Configure a saved database connection</p></div>
+      <div class="form-body">
+        <div class="sec-lbl">Profile name & appearance</div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field"><label>Profile name</label><input id="f-name" placeholder="My PostgreSQL DB"></div>
+          <div class="field"><label>Group / tag</label><input id="f-group" placeholder="Production, Dev…"></div>
+        </div>
+        <div class="sec-lbl">Colour</div>
+        <div class="color-row" id="color-row"></div>
+
+        <div class="divider"></div>
+        <div class="sec-lbl">Database engine</div>
+        <div class="db-grid" id="db-grid"></div>
+
+        <div id="dyn-fields"></div>
+
+        <div class="divider"></div>
+        <div class="alert alert-warn" style="margin-bottom:16px;font-size:12px">🔐 Credentials are encrypted at rest using Fernet (AES-128). The key is derived from your machine ID and never leaves this server.</div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveProfile()" id="btn-save">Save profile</button>
+          <button class="btn" onclick="testProfile()" id="btn-test">
+            <span id="test-spin" class="spinner" style="display:none"></span> Test
+          </button>
+          <span class="conn-badge cb-idle" id="conn-badge"><span class="dot"></span><span id="conn-txt">Not tested</span></span>
+          <button class="btn btn-red btn-sm" id="btn-del" onclick="deleteProfile()" style="margin-left:auto;display:none">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=['#6c63ff','#22d3a0','#f59e0b','#f87171','#38bdf8','#a78bfa','#fb923c','#34d399'];
+let connectors=[],currentId=null,currentType=null;
+
+async function init(){
+  const [cr,pr]=await Promise.all([fetch('/api/connectors').then(r=>r.json()),fetch('/api/profiles').then(r=>r.json())]);
+  connectors=cr.connectors;
+  renderColorRow();
+  renderDBGrid();
+  renderProfiles(pr.profiles);
+  // URL param: preselect profile
+  const pid=new URLSearchParams(location.search).get('edit');
+  if(pid) editProfile(pid);
+}
+
+function renderColorRow(){
+  document.getElementById('color-row').innerHTML=COLORS.map((c,i)=>
+    `<div class="color-dot${i===0?' sel':''}" style="background:${c}" onclick="selColor(this,'${c}')"></div>`
+  ).join('');
+}
+
+function selColor(el,c){
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function getColor(){return document.querySelector('.color-dot.sel')?.style.background||COLORS[0];}
+
+function renderDBGrid(){
+  const g=document.getElementById('db-grid'); g.innerHTML='';
+  connectors.forEach(c=>{
+    const d=document.createElement('div'); d.className='db-card';
+    d.innerHTML=`<div class="di">${c.icon}</div><div class="dn">${c.display_name}</div>`;
+    d.onclick=()=>{document.querySelectorAll('.db-card').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');selectConnector(c.name);};
+    g.appendChild(d);
+  });
+  if(connectors.length) {
+    g.children[0].classList.add('sel');
+    selectConnector(connectors[0].name);
+  }
+}
+
+function selectConnector(name){
+  currentType=name;
+  const c=connectors.find(x=>x.name===name);
+  if(!c)return;
+  const df=document.getElementById('dyn-fields');
+  df.innerHTML='';
+  let row=null,rowCount=0;
+  c.fields.forEach((f,i)=>{
+    if(f.width==='full'||rowCount===0){
+      if(row&&rowCount>0) df.appendChild(row);
+      row=document.createElement('div');
+      row.className=f.width==='full'?'grid-1':'grid-2';
+      rowCount=0;
+    }
+    const field=document.createElement('div'); field.className='field';
+    field.innerHTML=`<label>${f.label}${!f.required?' <span style="color:var(--text3)">(opt)</span>':''}</label>
+      <input id="cf-${f.key}" type="${f.type==='password'?'password':f.type==='number'?'number':'text'}"
+             placeholder="${f.placeholder||''}" value="${f.default||''}" ${!f.required?'':'required'}>`;
+    row.appendChild(field); rowCount++;
+    if(f.width==='full'||rowCount===2){df.appendChild(row);row=null;rowCount=0;}
+  });
+  if(row&&row.children.length) df.appendChild(row);
+}
+
+function getParams(){
+  const c=connectors.find(x=>x.name===currentType);
+  if(!c)return{};
+  const p={};
+  c.fields.forEach(f=>{
+    const el=document.getElementById(`cf-${f.key}`);
+    if(el) p[f.key]=f.type==='number'?parseInt(el.value||f.default||0):el.value;
+  });
+  return p;
+}
+
+function setParams(params){
+  Object.entries(params).forEach(([k,v])=>{
+    const el=document.getElementById(`cf-${k}`);
+    if(el&&v!=='••••••••') el.value=v;
+  });
+}
+
+function renderProfiles(profiles){
+  const el=document.getElementById('prof-list');
+  if(!profiles.length){el.innerHTML='<div class="empty-list">No profiles yet — create one →</div>';return;}
+  el.innerHTML=profiles.map(p=>`
+    <div class="prof-card${p.id===currentId?' active':''}" onclick="editProfile('${p.id}')">
+      <span class="prof-dot" style="background:${p.color}"></span>
+      <div style="flex:1;min-width:0">
+        <div class="prof-name">${p.name}${p.is_favourite?' ⭐':''}</div>
+        <div class="prof-meta">${p.db_type}${p.group_name?' · '+p.group_name:''}</div>
+      </div>
+      <div class="prof-actions">
+        <div class="icon-btn" onclick="event.stopPropagation();testProfileById('${p.id}')" title="Test">⚡</div>
+        <div class="icon-btn" onclick="event.stopPropagation();dupProfile('${p.id}')" title="Duplicate">⎘</div>
+        <a href="/blueprint?profile=${p.id}" class="icon-btn" title="Blueprint" onclick="event.stopPropagation()">🔍</a>
+        <a href="/explorer?profile=${p.id}" class="icon-btn" title="Explorer" onclick="event.stopPropagation()">🌳</a>
+      </div>
+    </div>`).join('');
+}
+
+async function loadProfiles(){
+  const d=await(await fetch('/api/profiles')).json();
+  renderProfiles(d.profiles);
+}
+
+function newProfile(){
+  currentId=null;
+  document.getElementById('form-title').textContent='New connection profile';
+  document.getElementById('form-sub').textContent='Configure a saved database connection';
+  document.getElementById('f-name').value='';
+  document.getElementById('f-group').value='';
+  document.getElementById('btn-del').style.display='none';
+  document.getElementById('btn-save').textContent='Save profile';
+  resetBadge();
+  renderDBGrid();
+}
+
+async function editProfile(id){
+  const d=await(await fetch(`/api/profiles/${id}`)).json();
+  currentId=id;
+  document.getElementById('form-title').textContent='Edit profile';
+  document.getElementById('form-sub').textContent=`ID: ${id}`;
+  document.getElementById('f-name').value=d.name;
+  document.getElementById('f-group').value=d.group_name||'';
+  document.getElementById('btn-del').style.display='';
+  document.getElementById('btn-save').textContent='Update profile';
+  resetBadge();
+  // Select connector
+  document.querySelectorAll('.db-card').forEach((el,i)=>{
+    el.classList.toggle('sel',connectors[i]?.name===d.db_type);
+  });
+  selectConnector(d.db_type);
+  setTimeout(()=>setParams(d.params),50);
+  // Select color
+  document.querySelectorAll('.color-dot').forEach(el=>{
+    el.classList.toggle('sel',el.style.background===d.color||el.style.background.replace(/\s/g,'')===d.color);
+  });
+  document.querySelectorAll('.prof-card').forEach(el=>{
+    el.classList.toggle('active',el.querySelector('.prof-name')?.textContent.replace(' ⭐','')===d.name);
+  });
+}
+
+async function saveProfile(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){alert('Profile name required');return;}
+  const body={name,db_type:currentType,params:getParams(),color:getColor(),group_name:document.getElementById('f-group').value};
+  const url=currentId?`/api/profiles/${currentId}`:'/api/profiles';
+  const method=currentId?'PUT':'POST';
+  await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(currentId?{...body}:body)});
+  await loadProfiles();
+  if(!currentId) newProfile();
+}
+
+async function deleteProfile(){
+  if(!currentId||!confirm('Delete this profile?'))return;
+  await fetch(`/api/profiles/${currentId}`,{method:'DELETE'});
+  currentId=null; newProfile(); loadProfiles();
+}
+
+async function dupProfile(id){
+  await fetch(`/api/profiles/${id}/duplicate`,{method:'POST'});
+  loadProfiles();
+}
+
+async function testProfile(){
+  const spin=document.getElementById('test-spin'),badge=document.getElementById('conn-badge'),txt=document.getElementById('conn-txt');
+  spin.style.display='inline-block'; badge.className='conn-badge cb-idle'; txt.textContent='Testing…';
+  try{
+    const r=await fetch('/api/test-conn',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({db_type:currentType,params:getParams()})});
+    const d=await r.json();
+    if(d.ok){badge.className='conn-badge cb-ok';txt.textContent=`OK · ${d.table_count} tables`;}
+    else throw new Error(d.error);
+  }catch(e){badge.className='conn-badge cb-err';txt.textContent=e.message.slice(0,50);}
+  spin.style.display='none';
+}
+
+async function testProfileById(id){
+  const r=await fetch('/api/test-conn/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:id})});
+  const d=await r.json();
+  alert(d.ok?`✅ Connected · ${d.table_count} tables`:`❌ ${d.error}`);
+}
+
+function resetBadge(){
+  const badge=document.getElementById('conn-badge'),txt=document.getElementById('conn-txt');
+  badge.className='conn-badge cb-idle'; txt.textContent='Not tested';
+}
+
+init();
+</script>
+</body>
+</html>

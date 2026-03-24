@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Blueprint — Analyze</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg:#0a0a0f; --bg2:#111118; --bg3:#1a1a24; --bg4:#22222e; --bg5:#2a2a38;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+  --text:#e8e8f0; --text2:#8888a8; --text3:#4a4a68;
+  --accent:#6c63ff; --accent2:#a78bfa; --glow:rgba(108,99,255,0.18);
+  --green:#22d3a0; --gdim:rgba(34,211,160,0.12);
+  --amber:#f59e0b; --adim:rgba(245,158,11,0.12);
+  --red:#f87171; --rdim:rgba(248,113,113,0.12);
+  --r:10px; --rl:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(108,99,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+/* Layout */
+.topbar{position:relative;z-index:10;height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
+.topbar-logo{font-size:18px}
+.topbar h1{font-size:15px;font-weight:800;letter-spacing:-.5px}
+.topbar h1 span{color:var(--accent2)}
+.topbar-back{margin-left:auto;font-size:12px;color:var(--text3);text-decoration:none;font-family:'JetBrains Mono',monospace;padding:6px 12px;border:1px solid var(--border);border-radius:6px;transition:all .2s}
+.topbar-back:hover{color:var(--text);border-color:var(--border2)}
+
+.layout{position:relative;z-index:1;display:flex;flex:1;overflow:hidden}
+
+/* Left sidebar — steps */
+.sidebar{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-steps{padding:16px 0;flex:1}
+.step-item{padding:12px 18px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;border-left:2px solid transparent;transition:all .2s}
+.step-item:hover{background:var(--bg3)}
+.step-item.active{background:var(--bg3);border-left-color:var(--accent)}
+.step-item.done{border-left-color:var(--green)}
+.step-num{width:24px;height:24px;border-radius:50%;border:1px solid var(--border2);background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3);flex-shrink:0;transition:all .2s}
+.step-item.active .step-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.step-item.done .step-num{background:var(--gdim);border-color:var(--green);color:var(--green)}
+.step-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-top:4px}
+.step-item.active .step-label,.step-item.done .step-label{color:var(--text)}
+.step-desc{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.4}
+
+/* Sidebar bottom — model selector */
+.sidebar-model{padding:14px 16px;border-top:1px solid var(--border)}
+.sidebar-model label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px}
+.model-select{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s}
+.model-select:focus{border-color:var(--accent)}
+.model-select option{background:var(--bg3)}
+.model-status{margin-top:8px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3)}
+.model-status.ok{color:var(--green)}
+.model-status.err{color:var(--red)}
+
+/* Main content */
+.main{flex:1;overflow-y:auto;padding:28px 32px 60px;display:flex;flex-direction:column;gap:0}
+
+/* Section panels */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:none}
+.panel.active{display:block}
+.ph{padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+.ph h2{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.ph p{font-size:13px;color:var(--text2);margin-top:4px}
+.pb{padding:24px}
+
+/* Form elements */
+.section-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid-321{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.grid-1{margin-bottom:12px}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field input,.field select{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--text3)}
+.field select option{background:var(--bg3)}
+
+/* DB cards */
+.db-card{padding:16px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);cursor:pointer;text-align:center;transition:all .2s}
+.db-card:hover{border-color:var(--border2)}
+.db-card.sel{border-color:var(--accent);background:var(--glow)}
+.db-card .dbi{font-size:24px;margin-bottom:8px}
+.db-card .dbn{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.db-card.sel .dbn{color:var(--accent2)}
+.db-card .dbs{font-size:10px;color:var(--text3);margin-top:3px;font-family:'JetBrains Mono',monospace}
+
+/* Buttons */
+.btn{padding:9px 18px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;letter-spacing:.3px}
+.btn:hover{background:var(--bg4)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 18px rgba(108,99,255,.3)}
+.btn-primary:hover:not(:disabled){background:#7c74ff;box-shadow:0 0 26px rgba(108,99,255,.4)}
+.btn-green{background:var(--gdim);border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:rgba(34,211,160,.2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-row{display:flex;gap:10px;margin-top:20px;align-items:center;flex-wrap:wrap}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+/* Connection status */
+.conn-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid transparent;transition:all .3s}
+.conn-badge.idle{background:var(--bg4);color:var(--text3);border-color:var(--border)}
+.conn-badge.testing{background:var(--adim);color:var(--amber);border-color:rgba(245,158,11,.3)}
+.conn-badge.ok{background:var(--gdim);color:var(--green);border-color:rgba(34,211,160,.3)}
+.conn-badge.err{background:var(--rdim);color:var(--red);border-color:rgba(248,113,113,.3)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.blink{animation:pulse 1s ease-in-out infinite}
+
+/* Industry */
+.ind-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.ind-card{padding:14px 8px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);cursor:pointer;text-align:center;transition:all .2s}
+.ind-card:hover{border-color:var(--border2)}
+.ind-card.sel{border-color:var(--accent);background:var(--glow)}
+.ind-card .ii{font-size:22px;margin-bottom:6px}
+.ind-card .in{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.ind-card.sel .in{color:var(--accent2)}
+.ind-card .ih{font-size:10px;color:var(--text3);margin-top:3px;font-family:'JetBrains Mono',monospace}
+
+/* Tags */
+.tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.tag{padding:5px 11px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;background:var(--bg4);color:var(--text3);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.tag:hover{border-color:var(--border2);color:var(--text2)}
+.tag.on{background:var(--glow);color:var(--accent2);border-color:var(--accent)}
+
+/* Progress / log */
+.prog-wrap{margin-bottom:16px}
+.prog-top{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+.prog-bar{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .4s ease}
+.log{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);max-height:220px;overflow-y:auto;line-height:1.9;margin-top:16px}
+.ll{display:flex;gap:10px}
+.lts{color:var(--text3)}
+.lok{color:var(--green)}
+.lerr{color:var(--red)}
+.linf{color:var(--accent2)}
+
+/* Stream box */
+.stream-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);max-height:300px;overflow-y:auto;line-height:1.7;white-space:pre-wrap;word-break:break-all}
+.cursor{display:inline-block;width:8px;height:14px;background:var(--accent2);animation:blink-cur .7s step-end infinite;vertical-align:middle}
+@keyframes blink-cur{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Output tabs */
+.tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 0 0 0}
+.tab-btn{padding:13px 20px;background:none;border:none;color:var(--text3);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s}
+.tab-btn:hover{color:var(--text2)}
+.tab-btn.on{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab-pane{display:none;padding:24px}
+.tab-pane.on{display:block}
+
+/* Export bar */
+.xbar{display:flex;gap:10px;flex-wrap:wrap;padding:14px 24px;border-bottom:1px solid var(--border)}
+
+/* ERD */
+.erd-wrap{background:var(--bg);border-radius:var(--r);padding:20px;overflow:auto;min-height:300px}
+
+/* Code */
+.code-wrap{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);overflow:auto;position:relative}
+.code-wrap pre{padding:18px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);white-space:pre-wrap;line-height:1.7}
+.copy-btn{position:absolute;top:10px;right:10px;padding:5px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--text);background:var(--bg4)}
+
+/* Relations */
+.rel-list{display:flex;flex-direction:column;gap:10px}
+.rel-card{padding:13px 16px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.rf{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent2);font-weight:600}
+.rt{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green);font-weight:600}
+.rarr{color:var(--text3);font-size:16px}
+.rtyp{font-size:10px;padding:3px 8px;border-radius:4px;background:var(--bg4);color:var(--text3);font-family:'JetBrains Mono',monospace}
+.cfh{background:var(--gdim);color:var(--green);border:1px solid rgba(34,211,160,.25)}
+.cfm{background:var(--adim);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.cfl{background:var(--rdim);color:var(--red);border:1px solid rgba(248,113,113,.25)}
+.conf-pill{margin-left:auto;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:4px 10px;border-radius:20px}
+.rel-reason{font-size:12px;color:var(--text2);width:100%;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)}
+.fk-badge{font-size:10px;padding:2px 7px;border-radius:4px;background:var(--gdim);color:var(--green);border:1px solid rgba(34,211,160,.25);font-family:'JetBrains Mono',monospace}
+
+/* Docs */
+.doc-tbl{margin-bottom:28px}
+.doc-tbl h3{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;gap:10px;align-items:center}
+.doc-tbl h3 .tn{font-family:'JetBrains Mono',monospace;color:var(--accent2)}
+.purp{font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--text3);font-family:'JetBrains Mono',monospace}
+.doc-tbl .tdesc{font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6}
+.doc-fields{border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.doc-field{display:grid;grid-template-columns:160px 100px 1fr;border-bottom:1px solid var(--border);font-size:12px}
+.doc-field:last-child{border-bottom:none}
+.doc-field>div{padding:9px 12px}
+.doc-field .fn{font-family:'JetBrains Mono',monospace;color:var(--accent2);font-weight:500}
+.doc-field .ft{font-family:'JetBrains Mono',monospace;color:var(--text3)}
+.doc-field .fd{color:var(--text2)}
+.doc-field-hdr{background:var(--bg3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+
+/* Missing tables */
+.miss-wrap{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.miss-wrap h3{font-size:13px;font-weight:700;color:var(--amber);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.miss-grid{display:flex;flex-direction:column;gap:8px}
+.miss-card{padding:10px 14px;border-radius:var(--r);background:var(--adim);border:1px solid rgba(245,158,11,.2);display:flex;gap:12px;align-items:flex-start}
+.miss-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);font-weight:600;min-width:150px}
+.miss-reason{font-size:12px;color:var(--text2)}
+
+/* Observations */
+.obs-list{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.obs-item{padding:10px 14px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.obs-icon{color:var(--accent2);flex-shrink:0}
+
+/* Alert */
+.alert{padding:12px 16px;border-radius:var(--r);font-size:13px;margin-bottom:16px;border:1px solid;line-height:1.5}
+.alert-info{background:var(--glow);border-color:rgba(108,99,255,.3);color:var(--accent2)}
+.alert-warn{background:var(--adim);border-color:rgba(245,158,11,.3);color:var(--amber)}
+.alert-ok{background:var(--gdim);border-color:rgba(34,211,160,.3);color:var(--green)}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+<!-- Top bar -->
+<div class="topbar">
+  <span class="topbar-logo">🔬</span>
+  <h1>DB <span>Blueprint</span></h1>
+  <a href="/" class="topbar-back">← Dashboard</a>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-steps">
+      <div class="step-item active" id="nav1" onclick="goStep(1)">
+        <span class="step-num" id="sn1">1</span>
+        <div>
+          <div class="step-label">Connect</div>
+          <div class="step-desc">DB engine & credentials</div>
+        </div>
+      </div>
+      <div class="step-item" id="nav2" onclick="goStep(2)">
+        <span class="step-num" id="sn2">2</span>
+        <div>
+          <div class="step-label">Context</div>
+          <div class="step-desc">Industry & domain hints</div>
+        </div>
+      </div>
+      <div class="step-item" id="nav3" onclick="goStep(3)">
+        <span class="step-num" id="sn3">3</span>
+        <div>
+          <div class="step-label">Extract</div>
+          <div class="step-desc">Schema + row samples</div>
+        </div>
+      </div>
+      <div class="step-item" id="nav4" onclick="goStep(4)">
+        <span class="step-num" id="sn4">4</span>
+        <div>
+          <div class="step-label">Analyze</div>
+          <div class="step-desc">AI inference via Ollama</div>
+        </div>
+      </div>
+      <div class="step-item" id="nav5" onclick="goStep(5)">
+        <span class="step-num" id="sn5">5</span>
+        <div>
+          <div class="step-label">Blueprint</div>
+          <div class="step-desc">ERD · docs · export</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model selector -->
+    <div class="sidebar-model">
+      <label>Ollama model</label>
+      <select class="model-select" id="model-select">
+        <option value="">Loading models...</option>
+      </select>
+      <div class="model-status" id="model-status">checking ollama...</div>
+    </div>
+  </div>
+
+  <!-- Main content area -->
+  <div class="main">
+
+    <!-- Step 1: Connect -->
+    <div class="panel active" id="step1">
+      <div class="ph">
+        <h2>Database connection</h2>
+        <p>Select your database engine and enter connection details. All connections are made server-side.</p>
+      </div>
+      <div class="pb">
+        <div class="section-lbl">Engine</div>
+        <div class="grid-4">
+          <div class="db-card sel" id="db-pg" onclick="selDB('postgresql')">
+            <div class="dbi">🐘</div><div class="dbn">PostgreSQL</div><div class="dbs">psycopg2</div>
+          </div>
+          <div class="db-card" id="db-mssql" onclick="selDB('mssql')">
+            <div class="dbi">🪟</div><div class="dbn">MS SQL Server</div><div class="dbs">pymssql</div>
+          </div>
+          <div class="db-card" id="db-mysql" onclick="selDB('mysql')">
+            <div class="dbi">🐬</div><div class="dbn">MySQL / MariaDB</div><div class="dbs">pymysql</div>
+          </div>
+          <div class="db-card" id="db-mongo" onclick="selDB('mongodb')">
+            <div class="dbi">🍃</div><div class="dbn">MongoDB</div><div class="dbs">pymongo</div>
+          </div>
+        </div>
+
+        <div class="section-lbl">Connection details</div>
+        <div class="grid-321">
+          <div class="field"><label>Host</label><input id="f-host" placeholder="localhost" value="localhost"></div>
+          <div class="field"><label>Port</label><input id="f-port" placeholder="5432" value="5432"></div>
+          <div class="field" id="schema-field"><label>Schema</label><input id="f-schema" placeholder="public" value="public"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Database name</label><input id="f-db" placeholder="mydb"></div>
+          <div class="field"><label>Username</label><input id="f-user" placeholder="postgres"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Password</label><input id="f-pass" type="password" placeholder="••••••••"></div>
+          <div class="field" id="uri-field" style="display:none"><label>MongoDB URI (overrides above)</label><input id="f-uri" placeholder="mongodb://user:pass@host:27017/db"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-green" id="btn-test" onclick="testConn()">
+            <span id="test-spin" class="spinner" style="display:none"></span>
+            Test Connection
+          </button>
+          <span class="conn-badge idle" id="conn-badge">
+            <span class="dot"></span><span id="conn-txt">Not tested</span>
+          </span>
+          <button class="btn btn-primary" id="btn-next1" onclick="goStep(2)" style="margin-left:auto" disabled>
+            Next: Context →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Context -->
+    <div class="panel" id="step2">
+      <div class="ph">
+        <h2>Domain context</h2>
+        <p>Industry context dramatically improves AI inference — especially with abbreviated or cryptic column names.</p>
+      </div>
+      <div class="pb">
+        <div class="section-lbl">Industry</div>
+        <div class="ind-grid">
+          <div class="ind-card" id="ind-banking" onclick="selInd('banking')"><div class="ii">🏦</div><div class="in">Banking</div><div class="ih">txn·acc·cust</div></div>
+          <div class="ind-card" id="ind-healthcare" onclick="selInd('healthcare')"><div class="ii">🏥</div><div class="in">Healthcare</div><div class="ih">pt·adm·dx·rx</div></div>
+          <div class="ind-card" id="ind-logistics" onclick="selInd('logistics')"><div class="ii">🚢</div><div class="in">Logistics</div><div class="ih">awb·pod·mfst</div></div>
+          <div class="ind-card" id="ind-ecommerce" onclick="selInd('ecommerce')"><div class="ii">🛒</div><div class="in">E-commerce</div><div class="ih">sku·cart·ord</div></div>
+          <div class="ind-card" id="ind-manufacturing" onclick="selInd('manufacturing')"><div class="ii">🏭</div><div class="in">Manufacturing</div><div class="ih">bom·wip·mrp</div></div>
+          <div class="ind-card" id="ind-telco" onclick="selInd('telco')"><div class="ii">📡</div><div class="in">Telco</div><div class="ih">cdr·msisdn</div></div>
+          <div class="ind-card" id="ind-insurance" onclick="selInd('insurance')"><div class="ii">🛡️</div><div class="in">Insurance</div><div class="ih">pol·clm·prm</div></div>
+          <div class="ind-card" id="ind-other" onclick="selInd('other')"><div class="ii">⚙️</div><div class="in">Other</div><div class="ih">generic</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field"><label>Sub-domain</label><input id="f-sub" placeholder="e.g. retail banking, emergency care, cold-chain"></div>
+          <div class="field"><label>Country / Region</label><input id="f-region" placeholder="e.g. Indonesia, EU, Southeast Asia"></div>
+        </div>
+
+        <div class="section-lbl" style="margin-top:16px">Schema hints</div>
+        <div class="tags" id="hint-tags">
+          <span class="tag" onclick="togTag(this)" data-v="no foreign keys enforced in database">no FK enforced</span>
+          <span class="tag" onclick="togTag(this)" data-v="abbreviated table and column names (3-5 char codes)">abbreviated names</span>
+          <span class="tag" onclick="togTag(this)" data-v="uses soft deletes (deleted_at or is_deleted column)">soft deletes</span>
+          <span class="tag" onclick="togTag(this)" data-v="has multi-tenancy (tenant_id on most tables)">multi-tenant</span>
+          <span class="tag" onclick="togTag(this)" data-v="UUID primary keys">UUID keys</span>
+          <span class="tag" onclick="togTag(this)" data-v="has audit trail tables">audit trail</span>
+          <span class="tag" onclick="togTag(this)" data-v="uses status/state machine pattern">state machines</span>
+          <span class="tag" onclick="togTag(this)" data-v="has versioning or history tables">versioning</span>
+          <span class="tag" onclick="togTag(this)" data-v="uses EAV (Entity-Attribute-Value) pattern">EAV pattern</span>
+          <span class="tag" onclick="togTag(this)" data-v="has JSONB or JSON columns for flexible data">JSON columns</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" onclick="goStep(1)">← Back</button>
+          <button class="btn btn-primary" onclick="goStep(3)" style="margin-left:auto">Next: Extract →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Extract -->
+    <div class="panel" id="step3">
+      <div class="ph">
+        <h2>Schema extraction</h2>
+        <p>FastAPI server queries system catalogs and pulls up to 8 sample rows per table.</p>
+      </div>
+      <div class="pb">
+        <div id="extract-ready">
+          <div class="alert alert-info" id="extract-info">Ready to extract schema.</div>
+          <div class="btn-row">
+            <button class="btn" onclick="goStep(2)">← Back</button>
+            <button class="btn btn-primary" onclick="doExtract()" id="btn-extract">
+              <span id="extract-spin" class="spinner" style="display:none"></span>
+              🔍 Extract Schema
+            </button>
+          </div>
+        </div>
+        <div id="extract-progress" style="display:none">
+          <div class="prog-wrap">
+            <div class="prog-top"><span id="prog-lbl">Extracting...</span><span id="prog-pct">0%</span></div>
+            <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+          </div>
+          <div class="log" id="log-box"></div>
+          <div id="schema-preview" style="display:none;margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Analyze -->
+    <div class="panel" id="step4">
+      <div class="ph">
+        <h2>AI analysis</h2>
+        <p>Sending schema + context to your selected Ollama model. Response streams in real-time.</p>
+      </div>
+      <div class="pb">
+        <div id="analyze-ready">
+          <div class="alert alert-info" id="analyze-info">Schema ready. Click Analyze to start inference.</div>
+          <div class="btn-row">
+            <button class="btn" onclick="goStep(3)">← Back</button>
+            <button class="btn btn-primary" onclick="doAnalyze()" id="btn-analyze">
+              <span id="analyze-spin" class="spinner" style="display:none"></span>
+              🤖 Run Analysis
+            </button>
+          </div>
+        </div>
+        <div id="analyze-running" style="display:none">
+          <div class="prog-wrap">
+            <div class="prog-top">
+              <span id="analyze-lbl">Streaming response from Ollama...</span>
+              <span id="token-count">0 tokens</span>
+            </div>
+            <div class="prog-bar"><div class="prog-fill" id="analyze-fill" style="width:15%;animation:pulse 2s ease-in-out infinite"></div></div>
+          </div>
+          <div class="stream-box" id="stream-box"><span class="cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Blueprint -->
+    <div class="panel" id="step5">
+      <div class="tab-nav" id="tab-nav">
+        <button class="tab-btn on" onclick="showTab('erd',this)">ERD Diagram</button>
+        <button class="tab-btn" onclick="showTab('mermaid',this)">Mermaid</button>
+        <button class="tab-btn" onclick="showTab('relations',this)">Relations</button>
+        <button class="tab-btn" onclick="showTab('docs',this)">Docs</button>
+        <button class="tab-btn" onclick="showTab('json',this)">JSON</button>
+      </div>
+
+      <div class="xbar">
+        <button class="btn btn-sm" onclick="xportMmd()">⬇ .mmd</button>
+        <button class="btn btn-sm" onclick="xportMd()">⬇ .md</button>
+        <button class="btn btn-sm" onclick="xportJSON()">⬇ .json</button>
+        <button class="btn btn-sm" onclick="goStep(1)" style="margin-left:auto">↺ New Analysis</button>
+      </div>
+
+      <div class="tab-pane on" id="tab-erd">
+        <div id="erd-domain" class="alert alert-ok" style="margin-bottom:16px"></div>
+        <div class="erd-wrap" id="erd-wrap">Rendering...</div>
+      </div>
+
+      <div class="tab-pane" id="tab-mermaid">
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyEl('mmd-code')">Copy</button>
+          <pre id="mmd-code"></pre>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-relations">
+        <div class="rel-list" id="rel-list"></div>
+        <div class="miss-wrap" id="miss-wrap" style="display:none">
+          <h3>⚠ Possibly missing tables</h3>
+          <div class="miss-grid" id="miss-grid"></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-docs">
+        <div id="docs-sum" class="alert alert-info" style="margin-bottom:20px"></div>
+        <div id="docs-obs" style="margin-bottom:24px;display:none">
+          <div class="section-lbl">Design observations</div>
+          <div class="obs-list" id="obs-list"></div>
+        </div>
+        <div id="docs-tables"></div>
+      </div>
+
+      <div class="tab-pane" id="tab-json">
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyEl('json-code')">Copy</button>
+          <pre id="json-code"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ── State ────────────────────────────────────────────
+const S = {
+  dbType:'postgresql', step:1, industry:null, hints:[],
+  schema:null, blueprint:null, connOk:false
+};
+const DB_PORTS = {postgresql:'5432',mssql:'1433',mysql:'3306',mongodb:'27017'};
+
+// ── Init ─────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadModels();
+  mermaid.initialize({startOnLoad:false,theme:'dark',fontFamily:'JetBrains Mono,monospace',
+    themeVariables:{darkMode:true,fontSize:'12px',lineColor:'#555577',textColor:'#a0a0c0'}});
+});
+
+// ── Models ────────────────────────────────────────────
+async function loadModels() {
+  const sel = document.getElementById('model-select');
+  const st  = document.getElementById('model-status');
+  try {
+    const r = await fetch('/api/models');
+    const d = await r.json();
+    if (!d.ok || !d.models.length) {
+      sel.innerHTML = '<option value="">No models found</option>';
+      st.textContent = 'pull a model: ollama pull llama3.2';
+      st.className = 'model-status err';
+      return;
+    }
+    sel.innerHTML = d.models.map(m =>
+      `<option value="${m.name}">${m.name} (${m.size_gb}GB)</option>`
+    ).join('');
+    st.textContent = `${d.models.length} model${d.models.length>1?'s':''} available`;
+    st.className = 'model-status ok';
+  } catch(e) {
+    sel.innerHTML = '<option value="">Ollama not running</option>';
+    st.textContent = 'start ollama: ollama serve';
+    st.className = 'model-status err';
+  }
+}
+
+// ── Navigation ────────────────────────────────────────
+function goStep(n) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`step${n}`).classList.add('active');
+  [1,2,3,4,5].forEach(i => {
+    const nav = document.getElementById(`nav${i}`);
+    const num = document.getElementById(`sn${i}`);
+    nav.classList.remove('active','done');
+    if (i < n) nav.classList.add('done');
+    if (i === n) nav.classList.add('active');
+  });
+  S.step = n;
+  if (n === 3) {
+    document.getElementById('extract-info').textContent =
+      `Ready to extract from ${S.dbType.toUpperCase()} at ${gv('f-host')}:${gv('f-port')} / ${gv('f-db')}`;
+  }
+  if (n === 4 && S.schema) {
+    const tc = Object.keys(S.schema.tables || {}).length;
+    document.getElementById('analyze-info').textContent =
+      `Schema extracted: ${tc} tables · Model: ${document.getElementById('model-select').value || 'none selected'}`;
+  }
+}
+
+// ── DB Selection ──────────────────────────────────────
+function selDB(type) {
+  S.dbType = type;
+  ['postgresql','mssql','mysql','mongodb'].forEach(t =>
+    document.getElementById(`db-${t==='postgresql'?'pg':t==='mssql'?'mssql':t==='mysql'?'mysql':'mongo'}`).classList.remove('sel')
+  );
+  const map = {postgresql:'pg',mssql:'mssql',mysql:'mysql',mongodb:'mongo'};
+  document.getElementById(`db-${map[type]}`).classList.add('sel');
+  document.getElementById('f-port').value = DB_PORTS[type];
+  const isMongo = type === 'mongodb';
+  document.getElementById('schema-field').style.display = isMongo ? 'none' : '';
+  document.getElementById('uri-field').style.display   = isMongo ? '' : 'none';
+  if (type === 'mssql') document.getElementById('f-schema').value = 'dbo';
+  else if (type !== 'mongodb') document.getElementById('f-schema').value = 'public';
+}
+
+// ── Industry ──────────────────────────────────────────
+function selInd(ind) {
+  S.industry = ind;
+  document.querySelectorAll('.ind-card').forEach(c => c.classList.remove('sel'));
+  document.getElementById(`ind-${ind}`).classList.add('sel');
+}
+
+function togTag(el) {
+  el.classList.toggle('on');
+  S.hints = [...document.querySelectorAll('.tag.on')].map(t => t.dataset.v);
+}
+
+// ── Helpers ───────────────────────────────────────────
+const gv = id => document.getElementById(id)?.value || '';
+
+function connCfg() {
+  return {
+    db_type: S.dbType, host: gv('f-host'), port: parseInt(gv('f-port')),
+    dbname: gv('f-db'), user: gv('f-user'), password: gv('f-pass'),
+    schema_name: gv('f-schema') || 'public', uri: gv('f-uri') || null
+  };
+}
+
+// ── Connection test ───────────────────────────────────
+async function testConn() {
+  const btn = document.getElementById('btn-test');
+  const spin = document.getElementById('test-spin');
+  const badge = document.getElementById('conn-badge');
+  const txt = document.getElementById('conn-txt');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  badge.className = 'conn-badge testing';
+  txt.textContent = 'Testing...';
+  badge.querySelector('.dot').classList.add('blink');
+  try {
+    const r = await fetch('/api/test-conn', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(connCfg())
+    });
+    const d = await r.json();
+    if (d.ok) {
+      badge.className = 'conn-badge ok';
+      txt.textContent = `Connected · ${d.table_count} tables`;
+      badge.querySelector('.dot').classList.remove('blink');
+      S.connOk = true;
+      document.getElementById('btn-next1').disabled = false;
+    } else {
+      throw new Error(d.error || 'Connection failed');
+    }
+  } catch(e) {
+    badge.className = 'conn-badge err';
+    badge.querySelector('.dot').classList.remove('blink');
+    txt.textContent = e.message.length > 60 ? e.message.slice(0,60)+'…' : e.message;
+  } finally {
+    btn.disabled = false; spin.style.display = 'none';
+  }
+}
+
+// ── Extract ───────────────────────────────────────────
+let logEntries = [];
+function addLog(type, msg) {
+  const ts = new Date().toLocaleTimeString('en-US',{hour12:false});
+  logEntries.push({ts,type,msg});
+  const box = document.getElementById('log-box');
+  box.innerHTML = logEntries.map(l =>
+    `<div class="ll"><span class="lts">${l.ts}</span><span class="l${l.type}">${l.msg}</span></div>`
+  ).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProg(pct, lbl) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.getElementById('prog-lbl').textContent = lbl;
+}
+
+async function doExtract() {
+  document.getElementById('extract-ready').style.display = 'none';
+  document.getElementById('extract-progress').style.display = 'block';
+  logEntries = [];
+  setProg(5, 'Connecting to database...');
+  addLog('inf', `Extracting from ${S.dbType} @ ${gv('f-host')}:${gv('f-port')}`);
+  try {
+    setProg(15, 'Running system catalog queries...');
+    addLog('inf', 'Querying information_schema / system catalogs...');
+    const r = await fetch('/api/extract', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(connCfg())
+    });
+    if (!r.ok) {
+      const e = await r.json();
+      throw new Error(e.detail || 'Extraction failed');
+    }
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.detail || 'Extraction failed');
+    S.schema = d.schema;
+    const tables = Object.keys(d.schema.tables);
+    setProg(70, `Extracted ${tables.length} tables`);
+    addLog('ok', `Tables found: ${tables.length}`);
+    addLog('inf', tables.slice(0,8).join(', ') + (tables.length > 8 ? `… +${tables.length-8} more` : ''));
+    const fkCount = d.schema.explicit_fks?.length || 0;
+    addLog(fkCount > 0 ? 'ok' : 'inf', `Explicit FKs: ${fkCount}${fkCount===0 ? ' — AI will infer all relations' : ''}`);
+    setProg(90, 'Pulling row samples...');
+    addLog('inf', 'Row samples collected (up to 8 per table)');
+    setProg(100, 'Extraction complete!');
+    addLog('ok', 'Schema ready for analysis');
+
+    // Schema preview
+    const prev = document.getElementById('schema-preview');
+    prev.style.display = 'block';
+    prev.innerHTML = `<div class="section-lbl" style="margin-bottom:8px">Extracted tables</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        ${tables.map(t => `<span style="padding:4px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--accent2)">${t}</span>`).join('')}
+      </div>`;
+
+    setTimeout(() => goStep(4), 1000);
+  } catch(e) {
+    addLog('err', 'Error: ' + e.message);
+    setProg(0, 'Failed');
+  }
+}
+
+// ── Analyze (SSE stream) ──────────────────────────────
+async function doAnalyze() {
+  const model = document.getElementById('model-select').value;
+  if (!model) { alert('Please select an Ollama model first.'); return; }
+  if (!S.schema) { alert('Please extract the schema first.'); return; }
+
+  document.getElementById('analyze-ready').style.display = 'none';
+  document.getElementById('analyze-running').style.display = 'block';
+
+  const streamBox = document.getElementById('stream-box');
+  streamBox.innerHTML = '<span class="cursor"></span>';
+  let buffer = '', tokenCount = 0;
+
+  try {
+    const payload = {
+      schema: S.schema, model,
+      industry: S.industry || 'other',
+      use_dedup: true,
+      subdomain: gv('f-sub'), region: gv('f-region'), hints: S.hints
+    };
+
+    const res = await fetch('/api/analyze/stream', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let partial = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      partial += dec.decode(value, {stream:true});
+      const lines = partial.split('\n');
+      partial = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.error) throw new Error(data.error);
+          if (data.token) {
+            buffer += data.token;
+            tokenCount++;
+            document.getElementById('token-count').textContent = tokenCount + ' tokens';
+            // Show last 2000 chars to avoid DOM overload
+            const display = buffer.length > 2000 ? '…' + buffer.slice(-2000) : buffer;
+            streamBox.innerHTML = escapeHtml(display) + '<span class="cursor"></span>';
+            streamBox.scrollTop = streamBox.scrollHeight;
+          }
+          if (data.done) {
+            streamBox.querySelector('.cursor')?.remove();
+            addLog('ok', 'Analysis complete');
+            parseAndRender(data.full || buffer);
+          }
+        } catch(e) {
+          if (e.message !== 'undefined') console.warn('SSE parse:', e);
+        }
+      }
+    }
+  } catch(e) {
+    streamBox.innerHTML = `<span style="color:var(--red)">Error: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function parseAndRender(raw) {
+  let bp;
+  try {
+    const clean = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+    // Find JSON object in the response
+    const start = clean.indexOf('{');
+    const end = clean.lastIndexOf('}');
+    if (start === -1 || end === -1) throw new Error('No JSON found');
+    bp = JSON.parse(clean.slice(start, end+1));
+  } catch(e) {
+    console.error('JSON parse failed:', e);
+    document.getElementById('analyze-lbl').textContent = 'Failed to parse JSON — check raw output';
+    return;
+  }
+  S.blueprint = bp;
+  document.getElementById('analyze-lbl').textContent = 'Analysis complete — rendering blueprint...';
+  document.getElementById('analyze-fill').style.animation = 'none';
+  document.getElementById('analyze-fill').style.width = '100%';
+  setTimeout(() => renderBlueprint(bp), 500);
+}
+
+// ── Render blueprint ──────────────────────────────────
+async function renderBlueprint(bp) {
+  goStep(5);
+
+  // Domain banner
+  document.getElementById('erd-domain').textContent =
+    `Detected: ${bp.domain_detected || '?'} (${bp.domain_confidence || '?'} confidence) · ${bp.relations?.length||0} relations inferred · ${bp.tables?.length||0} tables`;
+
+  // Mermaid
+  const mmd = bp.mermaid_erd || genFallbackMmd(bp);
+  document.getElementById('mmd-code').textContent = mmd;
+  try {
+    mermaid.initialize({startOnLoad:false,theme:'dark',fontFamily:'JetBrains Mono,monospace',
+      themeVariables:{darkMode:true,fontSize:'12px',lineColor:'#555577',textColor:'#a0a0c0'}});
+    const {svg} = await mermaid.render('erd-svg-' + Date.now(), mmd);
+    document.getElementById('erd-wrap').innerHTML = svg;
+  } catch(e) {
+    document.getElementById('erd-wrap').innerHTML =
+      `<div style="color:var(--text2);font-size:12px;font-family:'JetBrains Mono',monospace;padding:12px">Mermaid render error — see Mermaid tab.<br><pre style="color:var(--red);margin-top:8px;font-size:11px">${escapeHtml(e.message)}</pre></div>`;
+  }
+
+  // Relations
+  const relList = document.getElementById('rel-list');
+  relList.innerHTML = (bp.relations||[]).map(r => {
+    const cc = r.confidence==='high'?'cfh':r.confidence==='medium'?'cfm':'cfl';
+    const fkBadge = r.explicit_fk ? '<span class="fk-badge">explicit FK</span>' : '';
+    return `<div class="rel-card">
+      <span class="rf">${r.from_table}.${r.from_col}</span>
+      <span class="rarr">→</span>
+      <span class="rt">${r.to_table}.${r.to_col}</span>
+      <span class="rtyp">${r.type||''}</span>
+      ${fkBadge}
+      <span class="conf-pill ${cc}">${r.confidence}</span>
+      <span class="rel-reason">${escapeHtml(r.reason||'')}</span>
+    </div>`;
+  }).join('');
+
+  // Missing tables
+  if (bp.missing_tables?.length) {
+    document.getElementById('miss-wrap').style.display = '';
+    document.getElementById('miss-grid').innerHTML = bp.missing_tables.map(m => {
+      const name = typeof m === 'string' ? m : m.name;
+      const reason = typeof m === 'object' ? m.reason : '';
+      return `<div class="miss-card"><span class="miss-name">${name}</span><span class="miss-reason">${escapeHtml(reason)}</span></div>`;
+    }).join('');
+  }
+
+  // Docs
+  document.getElementById('docs-sum').textContent = bp.executive_summary || 'AI analysis complete.';
+  if (bp.design_observations?.length) {
+    document.getElementById('docs-obs').style.display = '';
+    document.getElementById('obs-list').innerHTML = bp.design_observations.map(o =>
+      `<div class="obs-item"><span class="obs-icon">◆</span><span>${escapeHtml(o)}</span></div>`
+    ).join('');
+  }
+  document.getElementById('docs-tables').innerHTML = (bp.tables||[]).map(t => {
+    const rows = (t.columns||[]).map(c =>
+      `<div class="doc-field">
+        <div class="fn">${c.name}${c.likely_fk_to?` <span style="color:var(--amber);font-size:10px">→${c.likely_fk_to}</span>`:''}${c.is_pk?` <span style="color:var(--accent2);font-size:10px">PK</span>`:''}</div>
+        <div class="ft"></div>
+        <div class="fd">${escapeHtml(c.description||'')}${c.notes?` <span style="color:var(--text3);font-size:11px">· ${escapeHtml(c.notes)}</span>`:''}</div>
+      </div>`
+    ).join('');
+    const imp = t.estimated_importance==='high'?'color:var(--green)':t.estimated_importance==='low'?'color:var(--text3)':'';
+    return `<div class="doc-tbl">
+      <h3><span class="tn">${t.name}</span>${t.purpose?`<span class="purp">${t.purpose}</span>`:''}${t.estimated_importance?`<span style="font-size:11px;${imp}">${t.estimated_importance} importance</span>`:''}</h3>
+      <div class="tdesc">${escapeHtml(t.description||'')}</div>
+      <div class="doc-fields">
+        <div class="doc-field doc-field-hdr"><div>Field</div><div>Type</div><div>Description</div></div>
+        ${rows}
+      </div>
+    </div>`;
+  }).join('');
+
+  // JSON
+  document.getElementById('json-code').textContent = JSON.stringify(bp, null, 2);
+}
+
+function genFallbackMmd(bp) {
+  let code = 'erDiagram\n';
+  (bp.tables||[]).forEach(t => {
+    code += `  ${t.name} {\n    string id\n  }\n`;
+  });
+  (bp.relations||[]).filter(r=>r.confidence!=='low').forEach(r => {
+    const c = r.type==='many-to-one'?'}o--||':r.type==='one-to-many'?'||--o{':'||--||';
+    code += `  ${r.from_table} ${c} ${r.to_table} : "${r.from_col}"\n`;
+  });
+  return code;
+}
+
+// ── Tabs ──────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('tab-' + name).classList.add('on');
+  btn.classList.add('on');
+}
+
+// ── Export ────────────────────────────────────────────
+function xportMmd() {
+  dl('blueprint.mmd', document.getElementById('mmd-code').textContent, 'text/plain');
+}
+function xportMd() {
+  if (!S.blueprint) return;
+  const bp = S.blueprint;
+  let md = `# Database Blueprint\n\n> ${bp.domain_detected} · ${bp.domain_confidence} confidence\n\n${bp.executive_summary||''}\n\n`;
+  md += `## Tables\n\n`;
+  (bp.tables||[]).forEach(t => {
+    md += `### \`${t.name}\` — ${t.purpose||''}\n${t.description||''}\n\n| Field | Description |\n|---|---|\n`;
+    (t.columns||[]).forEach(c => { md += `| \`${c.name}\` | ${c.description||''} |\n`; });
+    md += '\n';
+  });
+  md += `## Relations\n\n| From | To | Type | Confidence | Reason |\n|---|---|---|---|---|\n`;
+  (bp.relations||[]).forEach(r => {
+    md += `| \`${r.from_table}.${r.from_col}\` | \`${r.to_table}.${r.to_col}\` | ${r.type||''} | ${r.confidence} | ${r.reason||''} |\n`;
+  });
+  dl('blueprint.md', md, 'text/markdown');
+}
+function xportJSON() {
+  if (!S.blueprint) return;
+  dl('blueprint.json', JSON.stringify(S.blueprint, null, 2), 'application/json');
+}
+function dl(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name; a.click();
+}
+function copyEl(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent);
+  event.target.textContent = 'Copied!';
+  setTimeout(()=>event.target.textContent='Copy',1500);
+}
+</script>
+</body>
+</html>

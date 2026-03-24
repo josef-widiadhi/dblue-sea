@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DB Blueprint v2</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8e8f0;--text2:#8888a8;--text3:#4a4a68;--accent:#6c63ff;--accent2:#a78bfa;--glow:rgba(108,99,255,0.18);--green:#22d3a0;--gdim:rgba(34,211,160,0.12);--amber:#f59e0b;--adim:rgba(245,158,11,0.12);--red:#f87171;--rdim:rgba(248,113,113,0.12);--r:10px;--rl:16px}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(108,99,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.w{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:48px 24px 80px}
+.hdr{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+.logo{width:52px;height:52px;border-radius:14px;background:var(--glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.hdr h1{font-size:30px;font-weight:800;letter-spacing:-1px}.hdr h1 span{color:var(--accent2)}
+.v2{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-left:8px}
+.sub{font-size:13px;color:var(--text2);margin-bottom:40px;font-family:'JetBrains Mono',monospace}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:36px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:20px}
+.sc .lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.sc .val{font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-1px}
+.sc .sub2{font-size:12px;color:var(--text2);margin-top:4px;font-family:'JetBrains Mono',monospace}
+.ok-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;box-shadow:0 0 6px var(--green)}
+.err-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}.blink{animation:pulse 1.2s ease-in-out infinite}
+.nav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:36px}
+.nav-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:24px;text-decoration:none;color:var(--text);transition:all .2s;display:block}
+.nav-card:hover{border-color:var(--accent);background:var(--bg3);transform:translateY(-2px)}
+.nav-card .ni{font-size:28px;margin-bottom:12px}
+.nav-card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.nav-card p{font-size:13px;color:var(--text2);line-height:1.6}
+.nav-card .arr{float:right;color:var(--accent2);font-size:18px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.panel-h{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-h h2{font-size:14px;font-weight:700}
+.panel-h .refresh{font-size:12px;color:var(--accent2);cursor:pointer;font-family:'JetBrains Mono',monospace}
+.model-row{display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);gap:12px}
+.model-row:last-child{border-bottom:none}
+.mi{width:32px;height:32px;border-radius:8px;background:var(--glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.mn{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.mm{font-size:11px;color:var(--text3);margin-top:2px}
+.ms{margin-left:auto;padding:3px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text2)}
+.conn-row{display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);gap:12px;text-decoration:none;color:var(--text)}
+.conn-row:last-child{border-bottom:none}.conn-row:hover{background:var(--bg3)}
+.cdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cname{font-size:13px;font-weight:600}.ctype{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.ctime{margin-left:auto;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.empty{padding:24px 20px;text-align:center;color:var(--text3);font-size:13px}
+.empty a{color:var(--accent2)}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="hdr">
+    <div class="logo">🔬</div>
+    <div><h1>DB <span>Blueprint</span><span class="v2">v2</span></h1></div>
+  </div>
+  <div class="sub">// AI-powered database reverse engineering · connector plugin system · local Ollama</div>
+
+  <div class="stat-grid">
+    <div class="sc"><div class="lbl">Server</div><div class="val"><span class="ok-dot"></span>Online</div><div class="sub2">localhost:8000</div></div>
+    <div class="sc"><div class="lbl">Ollama</div><div class="val" id="ollama-val"><span class="err-dot blink"></span>…</div><div class="sub2" id="ollama-sub">—</div></div>
+    <div class="sc"><div class="lbl">Connectors</div><div class="val" id="conn-count">—</div><div class="sub2" id="conn-sub">loading…</div></div>
+    <div class="sc"><div class="lbl">Saved profiles</div><div class="val" id="profile-count">—</div><div class="sub2" id="profile-sub">—</div></div>
+  </div>
+
+  <div class="nav-grid">
+    <a href="/blueprint" class="nav-card"><span class="arr">→</span><div class="ni">🔍</div><h3>Blueprint</h3><p>Extract schema, run AI analysis, generate ERD and docs</p></a>
+    <a href="/explorer"  class="nav-card"><span class="arr">→</span><div class="ni">🌳</div><h3>Explorer</h3><p>Browse schema tree, inspect tables, preview data</p></a>
+    <a href="/profiles"  class="nav-card"><span class="arr">→</span><div class="ni">🔌</div><h3>Profiles</h3><p>Manage saved connection profiles with encrypted credentials</p></a>
+    <a href="/diagram"   class="nav-card"><span class="arr">→</span><div class="ni">📐</div><h3>ER Diagram</h3><p>Interactive ERD viewer with zoom, filter, and export</p></a>
+    <a href="#"          class="nav-card" style="opacity:.5;pointer-events:none"><span class="arr">→</span><div class="ni">🧬</div><h3>Dedup</h3><p>Similarity analysis — find duplicate tables and infer relations</p></a>
+    <a href="#"          class="nav-card" style="opacity:.5;pointer-events:none"><span class="arr">→</span><div class="ni">📦</div><h3>Source Code</h3><p>Phase 2 — analyse ORM models from Python, PHP, Go source</p></a>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-h"><h2>Ollama models</h2><span class="refresh" onclick="loadModels()">↺ refresh</span></div>
+      <div id="models-list"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h2>Recent profiles</h2><a href="/profiles" style="font-size:12px;color:var(--accent2);font-family:'JetBrains Mono',monospace;text-decoration:none">View all →</a></div>
+      <div id="profiles-list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+<script>
+const icons={llama:'🦙',mistral:'💨',qwen:'🌊',gemma:'💎',phi:'🔷',codellama:'💻',deepseek:'🔍',wizard:'🧙',neural:'🧠'};
+function gIcon(n){const k=n.toLowerCase();for(const[i,v]of Object.entries(icons))if(k.includes(i))return v;return'🤖';}
+function timeAgo(s){if(!s)return'never';const d=Math.floor((Date.now()-new Date(s))/60000);if(d<1)return'just now';if(d<60)return d+'m ago';if(d<1440)return Math.floor(d/60)+'h ago';return Math.floor(d/1440)+'d ago';}
+
+async function init(){
+  const h=await(await fetch('/api/health')).json();
+  const ov=document.getElementById('ollama-val'),os=document.getElementById('ollama-sub');
+  if(h.ollama.running){ov.innerHTML='<span class="ok-dot"></span>Running';os.textContent='localhost:11434';}
+  else{ov.innerHTML='<span class="err-dot"></span>Offline';os.textContent='ollama serve';}
+  document.getElementById('conn-count').textContent=h.connectors;
+  document.getElementById('conn-sub').textContent='installed plugins';
+  loadModels();loadProfiles();
+}
+
+async function loadModels(){
+  const d=await(await fetch('/api/models')).json();
+  const el=document.getElementById('models-list');
+  if(!d.ok||!d.models.length){el.innerHTML=`<div class="empty">No models found<br><br><code style="color:var(--accent2);font-family:'JetBrains Mono',monospace;font-size:12px">ollama pull qwen2.5-coder:7b</code></div>`;return;}
+  el.innerHTML=d.models.map(m=>`<div class="model-row"><div class="mi">${gIcon(m.name)}</div><div><div class="mn">${m.name}</div><div class="mm">${m.family||'LLM'}${m.params?' · '+m.params:''}</div></div><span class="ms">${m.size_gb}GB</span></div>`).join('');
+}
+
+async function loadProfiles(){
+  const d=await(await fetch('/api/profiles')).json();
+  const el=document.getElementById('profiles-list');
+  const pc=document.getElementById('profile-count'),ps=document.getElementById('profile-sub');
+  pc.textContent=d.profiles.length; ps.textContent=d.profiles.length===1?'profile':'profiles';
+  if(!d.profiles.length){el.innerHTML=`<div class="empty">No profiles yet<br><a href="/profiles">Create one →</a></div>`;return;}
+  el.innerHTML=d.profiles.slice(0,6).map(p=>`<a href="/blueprint?profile=${p.id}" class="conn-row"><span class="cdot" style="background:${p.color}"></span><div><div class="cname">${p.name}</div><div class="ctype">${p.db_type}${p.group_name?' · '+p.group_name:''}</div></div><span class="ctime">${timeAgo(p.last_used)}</span></a>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>

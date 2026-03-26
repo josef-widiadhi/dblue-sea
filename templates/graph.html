@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DB Blueprint — Knowledge Graph</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8e8f0;--text2:#8888a8;--text3:#4a4a68;--accent:#6c63ff;--accent2:#a78bfa;--glow:rgba(108,99,255,0.18);--green:#22d3a0;--gdim:rgba(34,211,160,0.12);--amber:#f59e0b;--adim:rgba(245,158,11,0.12);--red:#f87171;--rdim:rgba(248,113,113,0.12);--r:10px;--rl:16px}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;overflow:hidden}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+.topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;z-index:20}
+.topbar h1{font-size:15px;font-weight:800}.topbar h1 span{color:var(--accent2)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.back{font-size:12px;color:var(--text3);text-decoration:none;font-family:'JetBrains Mono',monospace;padding:6px 12px;border:1px solid var(--border);border-radius:6px;transition:all .2s}
+.back:hover{color:var(--text);border-color:var(--border2)}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid}
+.badge-ok{background:var(--gdim);color:var(--green);border-color:rgba(34,211,160,.3)}
+.badge-off{background:var(--rdim);color:var(--red);border-color:rgba(248,113,113,.3)}
+.layout{flex:1;overflow:hidden;display:flex}
+
+/* Sidebar */
+.sidebar{width:280px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:10}
+.sb-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.sb-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.field select,.field input{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;margin-bottom:8px}
+.field select:focus,.field input:focus{border-color:var(--accent)}.field select option{background:var(--bg3)}
+.btn{width:100%;padding:9px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px}
+.btn:hover{background:var(--bg4)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#7c74ff}.btn:disabled{opacity:.4;cursor:not-allowed}
+.sb-scroll{flex:1;overflow-y:auto}
+
+/* Stats */
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.stat{padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text2);flex:1;text-align:center}
+.stat .sv{font-size:16px;font-weight:700;color:var(--text);display:block;margin-bottom:2px}
+
+/* Detail panel */
+.detail-panel{position:absolute;right:0;top:0;bottom:0;width:320px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .3s;z-index:15}
+.detail-panel.open{transform:translateX(0)}
+.dp-h{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.dp-h h3{font-size:14px;font-weight:700}.dp-close{cursor:pointer;color:var(--text3);font-size:18px;line-height:1}
+.dp-body{flex:1;overflow-y:auto;padding:16px}
+.dp-section{margin-bottom:16px}
+.dp-section-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.dp-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.dp-row:last-child{border-bottom:none}
+.dp-key{color:var(--text3);font-family:'JetBrains Mono',monospace}
+.dp-val{color:var(--text);font-family:'JetBrains Mono',monospace;text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.signal-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;flex:1;margin:0 8px}
+.signal-fill{height:100%;border-radius:2px;background:var(--accent)}
+
+/* NL query */
+.nl-wrap{padding:12px 64px 12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px}
+.nl-wrap input{flex:1;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none}
+.nl-wrap input:focus{border-color:var(--accent)}
+.nl-wrap button{padding:8px 12px;border-radius:var(--r);border:1px solid var(--accent);background:var(--glow);color:var(--accent2);font-size:12px;cursor:pointer;transition:all .2s;font-weight:700}
+.nl-wrap button:hover{background:rgba(108,99,255,.25)}
+.nl-result{padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text2);max-height:120px;overflow-y:auto;white-space:pre-wrap;display:none}
+
+/* Graph canvas */
+.graph-wrap{flex:1;position:relative;overflow:hidden}
+#graph-canvas{width:100%;height:100%}
+
+/* Graph node/edge styles injected by D3 */
+.node-table circle{stroke-width:2;cursor:pointer;transition:r .15s}
+.node-table text{font-size:11px;font-family:'JetBrains Mono',monospace;pointer-events:none}
+.link{stroke-opacity:.6;fill:none}
+.link-explicit{stroke:#22d3a0;stroke-width:2}
+.link-high{stroke:#a78bfa;stroke-width:1.5;stroke-dasharray:none}
+.link-medium{stroke:#f59e0b;stroke-width:1;stroke-dasharray:4 2}
+.link-low{stroke:#f87171;stroke-width:0.8;stroke-dasharray:2 4}
+.link-fuzzy_high{stroke:#6c63ff;stroke-width:2;stroke-dasharray:none}
+.link-fuzzy_medium{stroke:#6c63ff;stroke-width:1.2;stroke-dasharray:5 3}
+.link-clone{stroke:#f87171;stroke-width:1;stroke-dasharray:3 3}
+
+/* Legend */
+.legend{position:absolute;bottom:16px;left:16px;background:rgba(17,17,24,.9);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;pointer-events:none}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);margin-bottom:6px}
+.leg-item:last-child{margin-bottom:0}
+.leg-line{width:28px;height:3px;border-radius:2px;flex-shrink:0}
+
+/* Zoom controls */
+.zoom-controls{position:absolute;top:68px;right:16px;display:flex;flex-direction:column;gap:4px;z-index:6}
+.zoom-btn{width:32px;height:32px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.zoom-btn:hover{border-color:var(--border2);color:var(--text)}
+
+/* Placeholder */
+.graph-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text3);font-size:14px;text-align:center;padding:40px}
+@keyframes spin{to{transform:rotate(360deg)}}.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span>🕸</span><h1>Knowledge <span>Graph</span></h1>
+  <span class="badge badge-off" id="neo4j-badge">Neo4j offline</span>
+  <div class="tb-right">
+    <a href="/" class="back">← Dashboard</a>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-section">
+      <div class="sb-lbl">Profile</div>
+      <div class="field"><select id="prof-sel" onchange="onProfileChange()"><option value="">Select profile…</option></select></div>
+      <button class="btn btn-primary" onclick="ingestAndDraw()" id="btn-ingest" disabled>
+        <span id="ingest-spin" class="spinner" style="display:none"></span>
+        Ingest into Neo4j
+      </button>
+      <button class="btn" onclick="loadGraph()" id="btn-load" disabled>Load graph</button>
+      <button class="btn" onclick="exportMermaid()" id="btn-export-mermaid" disabled>Export Mermaid</button>
+      <button class="btn" onclick="exportDbml()" id="btn-export-dbml" disabled>Export DBML</button>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-lbl">View controls</div>
+      <div class="field">
+        <select id="view-mode" onchange="applyViewMode()">
+          <option value="all">All relations</option>
+          <option value="explicit">Explicit FKs only</option>
+          <option value="fuzzy">Fuzzy relations only</option>
+          <option value="high">High confidence only</option>
+          <option value="approved">Approved only</option>
+        </select>
+      </div>
+      <div class="field">
+        <input id="focus-table" placeholder="Focus on table…" oninput="focusTable(this.value)" list="table-list">
+        <datalist id="table-list"></datalist>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-lbl">Graph stats</div>
+      <div class="stat-row">
+        <div class="stat"><span class="sv" id="st-tables">—</span>tables</div>
+        <div class="stat"><span class="sv" id="st-rels">—</span>relations</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="sv" id="st-fuzzy">—</span>fuzzy</div>
+        <div class="stat"><span class="sv" id="st-dupes">—</span>clones</div>
+      </div>
+    </div>
+
+    <div class="sb-scroll">
+      <div class="sb-section">
+        <div class="sb-lbl">Impact analysis</div>
+        <div class="field">
+          <input id="impact-table" placeholder="Table name…" list="table-list">
+          <input id="impact-col"   placeholder="Column (optional)…">
+        </div>
+        <button class="btn" onclick="runImpact()">Analyze impact</button>
+        <div id="impact-result" style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text2);margin-top:8px;display:none"></div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-lbl">Path finder</div>
+        <div class="field">
+          <input id="path-a" placeholder="Table A…" list="table-list">
+          <input id="path-b" placeholder="Table B…" list="table-list">
+        </div>
+        <button class="btn" onclick="findPath()">Find path</button>
+        <div id="path-result" style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text2);margin-top:8px;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main graph area -->
+  <div class="graph-wrap">
+    <!-- NL query bar -->
+    <div class="nl-wrap">
+      <input id="nl-input" placeholder="Ask about the schema… e.g. what connects to orders?" onkeydown="if(event.key==='Enter')runNLQuery()">
+      <button onclick="runNLQuery()">Ask</button>
+    </div>
+    <div id="nl-result" class="nl-result"></div>
+
+    <svg id="graph-canvas">
+      <defs>
+        <marker id="arr-g" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0L10 5L0 10z" fill="#22d3a0" opacity=".8"/>
+        </marker>
+        <marker id="arr-p" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0L10 5L0 10z" fill="#a78bfa" opacity=".8"/>
+        </marker>
+        <marker id="arr-a" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0L10 5L0 10z" fill="#f59e0b" opacity=".8"/>
+        </marker>
+        <marker id="arr-b" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0L10 5L0 10z" fill="#6c63ff" opacity=".8"/>
+        </marker>
+      </defs>
+    </svg>
+
+    <div class="graph-placeholder" id="placeholder">
+      <span style="font-size:40px">🕸</span>
+      <span>Select a profile and click<br>"Ingest into Neo4j" to build the knowledge graph</span>
+      <span style="font-size:12px;color:var(--text3)">Requires Neo4j running at bolt://localhost:7687</span>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="leg-line" style="background:#22d3a0"></div>Explicit FK</div>
+      <div class="leg-item"><div class="leg-line" style="background:#a78bfa"></div>Inferred (high)</div>
+      <div class="leg-item"><div class="leg-line" style="background:#f59e0b;height:2px;background:repeating-linear-gradient(90deg,#f59e0b 0,#f59e0b 4px,transparent 4px,transparent 8px)"></div>Inferred (medium)</div>
+      <div class="leg-item"><div class="leg-line" style="background:#6c63ff"></div>Fuzzy / data match</div>
+      <div class="leg-item"><div class="leg-line" style="background:#f87171;background:repeating-linear-gradient(90deg,#f87171 0,#f87171 3px,transparent 3px,transparent 6px)"></div>Likely clone</div>
+    </div>
+
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoom(1.3)">+</div>
+      <div class="zoom-btn" onclick="zoom(0.77)">−</div>
+      <div class="zoom-btn" onclick="resetZoom()" title="Reset">⊙</div>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="dp-h">
+        <h3 id="dp-title">Table detail</h3>
+        <span class="dp-close" onclick="closeDetail()">×</span>
+      </div>
+      <div class="dp-body" id="dp-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let profileId=null, graphData={nodes:[],links:[]}, simulation=null, svg=null, g=null, zoomBeh=null;
+function graphContext(){ try{return JSON.parse(localStorage.getItem('dbblueprint_domain_context')||'{}')}catch(e){return {}} }
+
+// ── Init ──────────────────────────────────────────────
+async function init(){
+  const h=await(await fetch('/api/health')).json();
+  const neo=h.graph?.available;
+  const badge=document.getElementById('neo4j-badge');
+  if(neo){badge.className='badge badge-ok';badge.textContent=`Neo4j · ${h.graph.table_count||0} nodes`;}
+  else{badge.className='badge badge-off';badge.textContent='Neo4j offline';}
+
+  const d=await(await fetch('/api/profiles')).json();
+  const sel=document.getElementById('prof-sel');
+  sel.innerHTML='<option value="">Select profile…</option>'+d.profiles.map(p=>`<option value="${p.id}">${p.name} (${p.db_type})</option>`).join('');
+  const pid=new URLSearchParams(location.search).get('profile');
+  if(pid){sel.value=pid;onProfileChange();}
+  initD3();
+}
+
+function onProfileChange(){
+  profileId=document.getElementById('prof-sel').value;
+  document.getElementById('btn-ingest').disabled=!profileId;
+  document.getElementById('btn-load').disabled=!profileId;
+  document.getElementById('btn-export-mermaid').disabled=!profileId;
+  document.getElementById('btn-export-dbml').disabled=!profileId;
+  if(profileId) loadGraph();
+}
+
+// ── Ingest ────────────────────────────────────────────
+async function ingestAndDraw(){
+  if(!profileId)return;
+  const btn=document.getElementById('btn-ingest');
+  const spin=document.getElementById('ingest-spin');
+  btn.disabled=true; spin.style.display='inline-block';
+  try{
+    const r=await fetch('/api/graph/ingest/profile',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({profile_id:profileId,run_fuzzy:true,use_cache:true,context:graphContext()})});
+    const d=await r.json();
+    document.getElementById('st-fuzzy').textContent=d.fuzzy_relations||0;
+    document.getElementById('st-dupes').textContent=d.table_duplicates||0;
+    await loadGraph();
+  }catch(e){alert('Ingest error: '+e.message);}
+  btn.disabled=false; spin.style.display='none';
+}
+
+// ── Load graph from Neo4j ─────────────────────────────
+async function loadGraph(){
+  if(!profileId)return;
+  document.getElementById('placeholder').style.display='none';
+  try{
+    const r=await fetch('/api/graph/relations/profile',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({profile_id:profileId,min_score:0.45,use_cache:true,...graphContext()})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.detail||'Failed to load relations');
+    buildGraphFromProfileRelations(d);
+  }catch(e){
+    loadFuzzyFallback();
+  }
+}
+
+async function loadFuzzyFallback(){
+  // If Neo4j not available, run fuzzy locally and display
+  const re=await fetch('/api/extract/profile',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_id:profileId,use_cache:true})});
+  const de=await re.json();
+  if(!de.ok)return;
+  const rf=await fetch('/api/graph/fuzzy',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({schema:de.schema,min_score:0.40})});
+  const df=await rf.json();
+  buildGraphFromFuzzy(de.schema, df);
+}
+
+
+function buildGraphFromProfileRelations(payload){
+  const nodeMap={};
+  const links=[];
+  const relations=payload.relations||[];
+  const duplicates=payload.duplicates||[];
+  relations.forEach(r=>{
+    if(!nodeMap[r.from_table]) nodeMap[r.from_table]={id:r.from_table,name:r.from_table,type:'table'};
+    if(!nodeMap[r.to_table])   nodeMap[r.to_table]={id:r.to_table,name:r.to_table,type:'table'};
+    links.push({source:r.from_table,target:r.to_table,confidence:r.confidence,
+      rel_type:r.rel_type||'inferred',score:r.score,signal:r.signal,evidence:r.evidence,
+      from_col:r.from_col,to_col:r.to_col,source_label:r.source||r.rel_type});
+  });
+  duplicates.forEach(d=>{
+    if(!nodeMap[d.table_a]) nodeMap[d.table_a]={id:d.table_a,name:d.table_a,type:'table'};
+    if(!nodeMap[d.table_b]) nodeMap[d.table_b]={id:d.table_b,name:d.table_b,type:'table'};
+    links.push({source:d.table_a,target:d.table_b,confidence:'medium',
+      rel_type:'clone',score:d.score,evidence:d.evidence,source_label:'clone'});
+  });
+  graphData={nodes:Object.values(nodeMap),links};
+  populateTableList(Object.keys(nodeMap));
+  updateStats(payload.summary||null);
+  drawGraph();
+}
+
+async function exportMermaid(){
+  if(!profileId)return;
+  const r=await fetch('/api/graph/export/mermaid',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_id:profileId,use_cache:true,min_score:0.5,...graphContext()})});
+  const d=await r.json();
+  if(!r.ok){ alert(d.detail||'Export failed'); return; }
+  const blob=new Blob([d.mermaid||''],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${(d.profile?.name||'blueprint').replace(/[^a-z0-9_-]+/gi,'_')}.mmd`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  a.remove();
+}
+
+async function exportDbml(){
+  if(!profileId)return;
+  const r=await fetch('/api/graph/export/dbml',{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({profile_id:profileId,use_cache:true,...graphContext()})});
+  const d=await r.json();
+  if(!r.ok){ alert(d.detail||'Export failed'); return; }
+  const blob=new Blob([d.dbml||''],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${(d.profile?.name||'blueprint').replace(/[^a-z0-9_-]+/gi,'_')}.dbml`; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+}
+
+function buildGraphFromRelations(relations){
+  const nodeMap={};
+  const links=[];
+  relations.forEach(r=>{
+    if(!nodeMap[r.from_table]) nodeMap[r.from_table]={id:r.from_table,name:r.from_table,type:'table'};
+    if(!nodeMap[r.to_table])   nodeMap[r.to_table]={id:r.to_table,name:r.to_table,type:'table'};
+    links.push({source:r.from_table,target:r.to_table,confidence:r.confidence,
+      rel_type:'fuzzy',score:r.score,signal:r.signal,evidence:r.evidence,
+      from_col:r.from_col,to_col:r.to_col});
+  });
+  graphData={nodes:Object.values(nodeMap),links};
+  updateStats();
+  drawGraph();
+}
+
+function buildGraphFromFuzzy(schema, fuzzyData){
+  const nodeMap={};
+  const links=[];
+  Object.keys(schema.tables||{}).forEach(t=>{nodeMap[t]={id:t,name:t,type:'table',row_count:schema.tables[t].row_count||0};});
+  // Explicit FKs
+  (schema.explicit_fks||[]).forEach(fk=>{
+    links.push({source:fk.from_table,target:fk.to_table,confidence:'explicit',
+      rel_type:'explicit',score:1,from_col:fk.from_col,to_col:fk.to_col});
+  });
+  // Fuzzy relations
+  (fuzzyData.relations||[]).forEach(r=>{
+    links.push({source:r.from_table,target:r.to_table,confidence:r.confidence,
+      rel_type:'fuzzy',score:r.composite_score,signal:r.dominant_signal,
+      evidence:r.evidence,from_col:r.from_col,to_col:r.to_col});
+  });
+  // Table duplicates
+  (fuzzyData.table_duplicates||[]).forEach(d=>{
+    links.push({source:d.table_a,target:d.table_b,confidence:'medium',
+      rel_type:'clone',score:d.score,evidence:d.reason});
+  });
+  graphData={nodes:Object.values(nodeMap),links};
+  populateTableList(Object.keys(schema.tables||{}));
+  updateStats();
+  drawGraph();
+}
+
+// ── D3 force graph ────────────────────────────────────
+function initD3(){
+  svg=d3.select('#graph-canvas');
+  zoomBeh=d3.zoom().scaleExtent([0.1,4]).on('zoom',e=>{g.attr('transform',e.transform);});
+  svg.call(zoomBeh);
+  g=svg.append('g');
+}
+
+function drawGraph(){
+  if(!g)initD3();
+  g.selectAll('*').remove();
+  if(!graphData.nodes.length)return;
+
+  const W=document.getElementById('graph-canvas').clientWidth;
+  const H=document.getElementById('graph-canvas').clientHeight;
+
+  const filtered=filterLinks(graphData.links);
+
+  simulation=d3.forceSimulation(graphData.nodes)
+    .force('link',d3.forceLink(filtered).id(d=>d.id).distance(120))
+    .force('charge',d3.forceManyBody().strength(-300))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('collision',d3.forceCollide(40));
+
+  // Links
+  const link=g.append('g').selectAll('line')
+    .data(filtered).enter().append('line')
+    .attr('class',d=>linkClass(d))
+    .attr('marker-end',d=>linkMarker(d));
+
+  // Nodes
+  const node=g.append('g').selectAll('.node-table')
+    .data(graphData.nodes).enter().append('g')
+    .attr('class','node-table')
+    .call(d3.drag()
+      .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;})
+      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
+      .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;}))
+    .on('click',(e,d)=>showNodeDetail(d));
+
+  node.append('circle')
+    .attr('r',d=>nodeRadius(d))
+    .attr('fill',d=>nodeFill(d))
+    .attr('stroke',d=>nodeStroke(d))
+    .attr('stroke-width',2);
+
+  node.append('text')
+    .attr('dy','0.35em')
+    .attr('text-anchor','middle')
+    .attr('fill','rgba(232,232,240,0.9)')
+    .style('font-size','10px')
+    .style('font-family','JetBrains Mono,monospace')
+    .text(d=>d.name.length>12?d.name.slice(0,10)+'…':d.name);
+
+  simulation.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>targetX(d)).attr('y2',d=>targetY(d));
+    node.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+}
+
+function filterLinks(links){
+  const mode=document.getElementById('view-mode').value;
+  return links.filter(l=>{
+    if(mode==='explicit')  return l.rel_type==='explicit';
+    if(mode==='fuzzy')     return l.rel_type==='fuzzy';
+    if(mode==='high')      return l.confidence==='high'||l.confidence==='explicit'||l.confidence==='approved';
+    if(mode==='approved')  return l.rel_type==='approved';
+    return true;
+  });
+}
+
+function applyViewMode(){ if(graphData.nodes.length) drawGraph(); }
+
+function linkClass(d){
+  if(d.rel_type==='approved') return 'link link-high';
+  if(d.rel_type==='explicit') return 'link link-explicit';
+  if(d.rel_type==='clone')    return 'link link-clone';
+  const conf=d.confidence||'low';
+  if(d.rel_type==='fuzzy')    return `link link-fuzzy_${conf}`;
+  return `link link-${conf}`;
+}
+
+function linkMarker(d){
+  if(d.rel_type==='approved') return 'url(#arr-p)';
+  if(d.rel_type==='explicit') return 'url(#arr-g)';
+  if(d.rel_type==='fuzzy')    return 'url(#arr-b)';
+  if(d.confidence==='high')   return 'url(#arr-p)';
+  return 'url(#arr-a)';
+}
+
+function nodeRadius(d){
+  const rc=d.row_count||0;
+  if(rc>1000000) return 22;
+  if(rc>10000)   return 18;
+  if(rc>100)     return 14;
+  return 10;
+}
+
+function nodeFill(d){return '#1a1a24';}
+function nodeStroke(d){
+  const links=graphData.links.filter(l=>(l.source.id||l.source)===d.id||(l.target.id||l.target)===d.id);
+  const hasExplicit=links.some(l=>l.rel_type==='explicit');
+  const hasFuzzy=links.some(l=>l.rel_type==='fuzzy'&&(l.score||0)>0.7);
+  if(hasExplicit) return '#22d3a0';
+  if(hasFuzzy)    return '#6c63ff';
+  return '#4a4a68';
+}
+
+function targetX(d){
+  const r=nodeRadius(d.target);
+  const dx=d.target.x-d.source.x, dy=d.target.y-d.source.y;
+  const dist=Math.sqrt(dx*dx+dy*dy)||1;
+  return d.target.x-dx/dist*r;
+}
+function targetY(d){
+  const r=nodeRadius(d.target);
+  const dx=d.target.x-d.source.x, dy=d.target.y-d.source.y;
+  const dist=Math.sqrt(dx*dx+dy*dy)||1;
+  return d.target.y-dy/dist*r;
+}
+
+// ── Focus table ───────────────────────────────────────
+function focusTable(name){
+  if(!name||!g)return;
+  const node=graphData.nodes.find(n=>n.name===name);
+  if(!node||!node.x)return;
+  const W=document.getElementById('graph-canvas').clientWidth;
+  const H=document.getElementById('graph-canvas').clientHeight;
+  svg.transition().duration(600).call(zoomBeh.transform,
+    d3.zoomIdentity.translate(W/2-node.x*1.5,H/2-node.y*1.5).scale(1.5));
+}
+
+function zoom(k){
+  svg.transition().duration(300).call(zoomBeh.scaleBy,k);
+}
+function resetZoom(){
+  svg.transition().duration(400).call(zoomBeh.transform,d3.zoomIdentity);
+}
+
+// ── Node detail ───────────────────────────────────────
+function showNodeDetail(node){
+  document.getElementById('dp-title').textContent=node.name;
+  const links=graphData.links.filter(l=>(l.source.id||l.source)===node.id||(l.target.id||l.target)===node.id);
+  const explicit=links.filter(l=>l.rel_type==='explicit');
+  const fuzzy=links.filter(l=>l.rel_type==='fuzzy').sort((a,b)=>b.score-a.score);
+
+  let html=`<div class="dp-section">
+    <div class="dp-section-lbl">Table info</div>
+    <div class="dp-row"><span class="dp-key">name</span><span class="dp-val">${node.name}</span></div>
+    ${node.row_count!==undefined?`<div class="dp-row"><span class="dp-key">rows</span><span class="dp-val">${(node.row_count||0).toLocaleString()}</span></div>`:''}
+    <div class="dp-row"><span class="dp-key">connections</span><span class="dp-val">${links.length}</span></div>
+  </div>`;
+
+  if(explicit.length){
+    html+=`<div class="dp-section"><div class="dp-section-lbl">Explicit FKs</div>`;
+    explicit.forEach(l=>{
+      const other=(l.source.id||l.source)===node.id?l.target.name||l.target:l.source.name||l.source;
+      html+=`<div class="dp-row"><span class="dp-key">${l.from_col||'?'}</span><span class="dp-val" style="color:var(--green)">→ ${other}.${l.to_col||'?'}</span></div>`;
+    });
+    html+='</div>';
+  }
+
+  const inferred=links.filter(l=>l.rel_type==='fuzzy'||l.rel_type==='inferred'||l.rel_type==='approved').sort((a,b)=>(b.score||0)-(a.score||0));
+  if(inferred.length){
+    html+=`<div class="dp-section"><div class="dp-section-lbl">Semantic relations</div>`;
+    inferred.slice(0,10).forEach(l=>{
+      const other=(l.source.id||l.source)===node.id?l.target.name||l.target:l.source.name||l.source;
+      const sc=Math.round((l.score||0)*100);
+      const conf=l.confidence||'medium';
+      const prov=(l.source_label||l.signal||l.rel_type||'').replaceAll('_',' ');
+      const rid=l.id||'';
+      html+=`<div class="dp-row"><span class="dp-key">${l.from_col||'?'} → ${other}.${l.to_col||'?'}</span><span class="dp-val">${sc}%</span></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 0 8px;border-bottom:1px solid var(--border)">
+        <span class="chip chip-${conf==='approved'?'approved':conf}">${conf}</span>
+        <span class="chip chip-prov">${prov}</span>
+        <span class="chip chip-prov">${escHtml(l.evidence||'')}</span>
+        ${conf!=='approved'?`<button class="btn btn-sm" onclick='approveRelation(${JSON.stringify({from_table:node.name,from_col:l.from_col,to_table:other,to_col:l.to_col,rel_type:l.rel_type,score:l.score,signal:l.signal,source:l.source_label,evidence:l.evidence}).replace(/'/g,"&#39;")})'>Approve</button>`:''}
+        ${conf==='approved'&&rid?`<button class="btn btn-sm" onclick="removeApproval('${rid}')">Revoke</button>`:''}
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  document.getElementById('dp-body').innerHTML=html;
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail(){ document.getElementById('detail-panel').classList.remove('open'); }
+
+// ── Impact analysis ───────────────────────────────────
+async function runImpact(){
+  const t=document.getElementById('impact-table').value.trim();
+  const c=document.getElementById('impact-col').value.trim();
+  if(!t||!profileId)return;
+  const r=await fetch('/api/graph/impact',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_id:profileId,table_name:t,col_name:c||null})});
+  const d=await r.json();
+  const el=document.getElementById('impact-result');
+  el.style.display='block';
+  if(d.error){el.innerHTML=`<span style="color:var(--red)">${d.error}</span>`;return;}
+  if(!d.affected?.length){el.innerHTML='No downstream tables found';return;}
+  el.innerHTML=`<span style="color:var(--amber)">Affected (${d.affected.length}):</span>\n`+
+    d.affected.map(a=>`  • ${a.name||a}`).join('\n');
+}
+
+// ── Path finder ───────────────────────────────────────
+async function findPath(){
+  const a=document.getElementById('path-a').value.trim();
+  const b=document.getElementById('path-b').value.trim();
+  if(!a||!b||!profileId)return;
+  const r=await fetch('/api/graph/path',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_id:profileId,table_a:a,table_b:b})});
+  const d=await r.json();
+  const el=document.getElementById('path-result');
+  el.style.display='block';
+  if(d.error){el.innerHTML=`<span style="color:var(--red)">${d.error}</span>`;return;}
+  if(!d.path?.length){el.innerHTML='No path found';return;}
+  el.innerHTML=`<span style="color:var(--green)">${d.hops} hops:</span>\n`+
+    d.path.join(' → ');
+}
+
+// ── NL Query ──────────────────────────────────────────
+async function runNLQuery(){
+  const q=document.getElementById('nl-input').value.trim();
+  if(!q||!profileId)return;
+  const r=await fetch('/api/graph/nl-query',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_id:profileId,question:q})});
+  const d=await r.json();
+  const el=document.getElementById('nl-result');
+  el.style.display='block';
+  el.textContent=d.context||'No context found';
+}
+
+function populateTableList(tables){
+  const dl=document.getElementById('table-list');
+  dl.innerHTML=tables.map(t=>`<option value="${t}">`).join('');
+}
+
+function escHtml(s){return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+async function approveRelation(rel){ if(!profileId) return; const notes=prompt('Approval note (optional):',''); const r=await fetch('/api/graph/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:profileId,relation:rel,notes:notes||''})}); const d=await r.json(); if(!r.ok){alert(d.detail||'Approval failed');return;} await loadGraph(); }
+async function removeApproval(id){ const r=await fetch('/api/graph/approve/'+id,{method:'DELETE'}); const d=await r.json(); if(!r.ok){alert(d.detail||'Delete failed');return;} await loadGraph(); }
+function updateStats(summary=null){
+  document.getElementById('st-tables').textContent=summary?.tables ?? graphData.nodes.length;
+  document.getElementById('st-rels').textContent=summary?.explicit_relations ?? graphData.links.filter(l=>l.rel_type==='explicit'||l.rel_type==='inferred').length;
+  document.getElementById('st-fuzzy').textContent=summary?.fuzzy_relations ?? graphData.links.filter(l=>l.rel_type==='fuzzy').length;
+  document.getElementById('st-dupes').textContent=summary?.table_duplicates ?? graphData.links.filter(l=>l.rel_type==='clone').length;
+}
+
+init();
+</script>
+</body>
+</html>

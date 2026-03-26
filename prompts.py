@@ -14,7 +14,9 @@ INDUSTRY_HINTS = {
 
 
 def build_analysis_prompt(schema: dict, industry: str, subdomain: str,
-                           region: str, hints: list[str], dedup_results: dict = None) -> str:
+                           region: str, hints: list[str], dedup_results: dict = None,
+                           graph_context: str = None, dictionary: dict = None,
+                           dictionary_scopes: list[dict] = None) -> str:
     tables_payload = [
         {"name": n, "row_count": t.get("row_count", 0),
          "columns": t.get("columns", []), "sample_rows": t.get("samples", [])[:3]}
@@ -35,6 +37,26 @@ Similar table pairs (possible duplicates/aliases):
 {json.dumps(similar[:10], indent=2)}
 """
 
+    graph_section = ''
+    if graph_context:
+        graph_section = f"""
+=== NEO4J KNOWLEDGE GRAPH CONTEXT (high-confidence — use first) ===
+{graph_context}
+"""
+
+    dictionary = dictionary or {}
+    dictionary_scopes = dictionary_scopes or []
+    dictionary_section = ''
+    if dictionary:
+        terms = dict(sorted(dictionary.items()))
+        dictionary_section = f"""
+=== DOMAIN LINT / DEFINITION LIBRARY (treat as prior vocabulary, prefer these meanings over guesses) ===
+Loaded scopes: {json.dumps(dictionary_scopes, indent=2)}
+Resolved definitions:
+{json.dumps(terms, indent=2)}
+Use this library to expand abbreviations and reduce hallucination. If schema tokens match these entries, prefer these definitions unless sample data strongly contradicts them.
+"""
+
     return f"""You are a senior database architect performing reverse engineering.
 
 === DOMAIN CONTEXT ===
@@ -44,6 +66,8 @@ Region: {region or 'not specified'}
 DB: {schema.get('db_type','?')} / schema: {schema.get('schema_name','?')}
 User hints: {', '.join(hints) if hints else 'none'}
 {dedup_section}
+{graph_section}
+{dictionary_section}
 === SCHEMA ({len(tables_payload)} tables) ===
 {json.dumps(tables_payload, indent=2, default=str)}
 

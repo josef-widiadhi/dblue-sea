@@ -17,3 +17,5 @@ sqlalchemy==2.0.30
 rapidfuzz==3.9.3
 # Utilities
 python-dotenv==1.0.1
+# Graph
+neo4j==5.20.0

@@ -58,9 +58,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 /* Main content */
 .main{flex:1;overflow-y:auto;padding:28px 32px 60px;display:flex;flex-direction:column;gap:0}
+.panel.active{display:flex;flex-direction:column;max-height:calc(100vh - 110px)}
+.panel.active .pb{overflow:auto}
 
 /* Section panels */
-.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:none}
+.panel{max-height:calc(100vh - 110px);overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:none}
 .panel.active{display:block}
 .ph{padding:20px 24px 16px;border-bottom:1px solid var(--border)}
 .ph h2{font-size:16px;font-weight:700;letter-spacing:-.3px}
@@ -74,8 +76,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .grid-321{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px}
 .grid-1{margin-bottom:12px}
 .field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.field input,.field select{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s}
-.field input:focus,.field select:focus{border-color:var(--accent)}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:120px}
 .field input::placeholder{color:var(--text3)}
 .field select option{background:var(--bg3)}
 
@@ -210,6 +213,23 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .alert-info{background:var(--glow);border-color:rgba(108,99,255,.3);color:var(--accent2)}
 .alert-warn{background:var(--adim);border-color:rgba(245,158,11,.3);color:var(--amber)}
 .alert-ok{background:var(--gdim);border-color:rgba(34,211,160,.3);color:var(--green)}
+
+
+.dict-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-top:12px}
+.dict-table{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--bg)}
+.dict-head,.dict-row{display:grid;grid-template-columns:180px 1fr 88px;gap:0;border-bottom:1px solid var(--border)}
+.dict-head{background:var(--bg3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.dict-head div,.dict-row>div{padding:9px 10px}
+.dict-row input{width:100%;background:transparent;border:none;outline:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px}
+.dict-row:last-child{border-bottom:none}
+.dict-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lib-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto}
+.lib-card{padding:10px 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);cursor:pointer}
+.lib-card:hover{border-color:var(--border2)}
+.lib-card .t{font-size:12px;font-weight:700;color:var(--text)}
+.lib-card .m{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:3px}
+.small{font-size:11px;color:var(--text3)}
+.alert-dark{background:var(--bg3);border-color:var(--border);color:var(--text2)}
 
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
@@ -352,6 +372,33 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <div class="grid-2">
           <div class="field"><label>Sub-domain</label><input id="f-sub" placeholder="e.g. retail banking, emergency care, cold-chain"></div>
           <div class="field"><label>Country / Region</label><input id="f-region" placeholder="e.g. Indonesia, EU, Southeast Asia"></div>
+        </div>
+
+        <div class="section-lbl" style="margin-top:16px">Lint definition library</div>
+        <div class="alert alert-info" style="margin-bottom:12px">Shared domain dictionary reduces guesswork and minimizes hallucination. Example: <code>txn → transaction</code>, <code>amt → amount</code>, <code>src → source account</code>. Reuse it across similar databases so the model stops improvising with a fake mustache.</div>
+        <div class="grid-2">
+          <div class="field"><label>Save scope</label><select id="dict-scope"><option value="shared">Shared global library</option><option value="industry">Industry library</option><option value="context">Industry + sub-domain + region</option></select></div>
+          <div class="field"><label>Resolved library</label><div class="alert alert-dark" id="dict-status" style="min-height:44px">No dictionary loaded yet.</div></div>
+        </div>
+        <div class="dict-grid">
+          <div>
+            <div class="dict-actions">
+              <button class="btn" onclick="loadDictionaryLibrary()">Load exact scope</button>
+              <button class="btn" onclick="suggestDictionaryLibrary()">Resolve by context</button>
+              <button class="btn" onclick="saveDictionaryLibrary()">Save library</button>
+              <button class="btn" onclick="addDictRow()">+ Term</button>
+            </div>
+            <div class="dict-table" style="margin-top:12px">
+              <div class="dict-head"><div>Term</div><div>Meaning</div><div>Action</div></div>
+              <div id="dict-rows"></div>
+            </div>
+            <div class="field" style="margin-top:12px"><label>JSON mirror</label><textarea id="dict-editor" style="min-height:140px" placeholder='{"txn":"transaction","amt":"amount","src":"source account"}' oninput="syncRowsFromTextarea()"></textarea><div class="small" style="margin-top:6px">Blueprint, Dedup, and Knowledge Graph all reuse this library. Keep short forms on the left, business meaning on the right.</div></div>
+          </div>
+          <div>
+            <div class="field"><label>Reusable libraries</label><div class="small" style="margin-bottom:8px">Click any saved library to load it into the current Blueprint context.</div></div>
+            <div class="lib-list" id="dict-library-list"></div>
+            <div class="btn-row" style="margin-top:10px"><button class="btn btn-sm" onclick="refreshDictionaryLibraries()">↻ Refresh libraries</button></div>
+          </div>
         </div>
 
         <div class="section-lbl" style="margin-top:16px">Schema hints</div>
@@ -501,9 +548,28 @@ const DB_PORTS = {postgresql:'5432',mssql:'1433',mysql:'3306',mongodb:'27017'};
 // ── Init ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadModels();
+  loadSavedDomainContext();
   mermaid.initialize({startOnLoad:false,theme:'dark',fontFamily:'JetBrains Mono,monospace',
     themeVariables:{darkMode:true,fontSize:'12px',lineColor:'#555577',textColor:'#a0a0c0'}});
 });
+
+
+function loadSavedDomainContext() {
+  try {
+    const d = JSON.parse(localStorage.getItem('dbblueprint_domain_context') || '{}');
+    if (d.industry) selInd(d.industry); else selInd('other');
+    if (d.subdomain) document.getElementById('f-sub').value = d.subdomain;
+    if (d.region) document.getElementById('f-region').value = d.region;
+    if (d.dictionary) document.getElementById('dict-editor').value = fmtDictionary(d.dictionary);
+    if (Array.isArray(d.hints)) {
+      document.querySelectorAll('#hint-tags .tag').forEach(t => t.classList.toggle('on', d.hints.includes(t.dataset.v)));
+      S.hints = d.hints;
+    }
+  } catch(e) {
+    selInd('other');
+  }
+  suggestDictionaryLibrary();
+}
 
 // ── Models ────────────────────────────────────────────
 async function loadModels() {
@@ -690,6 +756,22 @@ async function doExtract() {
   }
 }
 
+
+function currentDictionaryScope(){return document.getElementById('dict-scope').value;}
+function currentDictionaryKey(){const industry=(S.industry||'other').toLowerCase(); const sub=(gv('f-sub')||'').trim().toLowerCase(); const region=(gv('f-region')||'').trim().toLowerCase(); const scope=currentDictionaryScope(); if(scope==='shared') return 'global'; return scope==='context' ? [industry, sub||'-', region||'-'].join('|') : industry;}
+function setDictionaryStatus(msg){document.getElementById('dict-status').textContent = msg;}
+function fmtDictionary(obj){return JSON.stringify(obj||{}, null, 2);}
+function syncTextareaFromRows(){const rows=[...document.querySelectorAll('#dict-rows .dict-row')]; const obj={}; rows.forEach(r=>{const k=r.querySelector('.dk').value.trim(); const v=r.querySelector('.dv').value.trim(); if(k) obj[k]=v;}); document.getElementById('dict-editor').value=fmtDictionary(obj); return obj;}
+function renderDictionaryRows(obj){const host=document.getElementById('dict-rows'); host.innerHTML=''; const entries=Object.entries(obj||{}); if(!entries.length){addDictRow('',''); return;} entries.forEach(([k,v])=>addDictRow(k,v,false)); syncTextareaFromRows();}
+function addDictRow(k='',v='',sync=true){const host=document.getElementById('dict-rows'); const row=document.createElement('div'); row.className='dict-row'; row.innerHTML=`<div><input class="dk" value="${escapeHtml(k)}" placeholder="txn"></div><div><input class="dv" value="${escapeHtml(v)}" placeholder="transaction"></div><div><button class="btn btn-sm" type="button">✕</button></div>`; row.querySelectorAll('input').forEach(i=>i.addEventListener('input', ()=>syncTextareaFromRows())); row.querySelector('button').addEventListener('click', ()=>{row.remove(); if(!document.querySelector('#dict-rows .dict-row')) addDictRow('','',false); syncTextareaFromRows();}); host.appendChild(row); if(sync) syncTextareaFromRows();}
+function syncRowsFromTextarea(){try{const raw=(document.getElementById('dict-editor').value||'').trim(); const obj=raw?JSON.parse(raw):{}; if(obj && typeof obj==='object' && !Array.isArray(obj)){renderDictionaryRows(obj);} }catch(e){} }
+function getDictionaryObject(){try{ return syncTextareaFromRows(); }catch(e){return {};}}
+async function loadDictionaryLibrary(){const url=`/api/dictionaries/${encodeURIComponent(currentDictionaryScope())}/${encodeURIComponent(currentDictionaryKey())}`; const r=await fetch(url); if(r.status===404){setDictionaryStatus('No saved library for this scope yet.'); return;} const d=await r.json(); renderDictionaryRows(d.dictionary_json||{}); setDictionaryStatus(`Loaded ${Object.keys(d.dictionary_json||{}).length} terms from ${d.scope_type}:${d.scope_key}`); const ctx=JSON.parse(localStorage.getItem('dbblueprint_domain_context')||'{}'); ctx.dictionary=d.dictionary_json||{}; localStorage.setItem('dbblueprint_domain_context', JSON.stringify(ctx)); refreshDictionaryLibraries(); }
+async function suggestDictionaryLibrary(){const params=new URLSearchParams({industry:S.industry||'other', subdomain:gv('f-sub')||'', region:gv('f-region')||''}); const r=await fetch(`/api/dictionaries/resolve?${params}`); const d=await r.json(); renderDictionaryRows(d.dictionary||{}); const scopes=(d.matched_scopes||[]).map(x=>`${x.scope_type}:${x.scope_key} (${x.term_count})`).join(', '); setDictionaryStatus(scopes ? `Resolved ${Object.keys(d.dictionary||{}).length} terms from ${scopes}` : 'No matching shared library found yet.'); const ctx=JSON.parse(localStorage.getItem('dbblueprint_domain_context')||'{}'); ctx.dictionary=d.dictionary||{}; localStorage.setItem('dbblueprint_domain_context', JSON.stringify(ctx)); refreshDictionaryLibraries(); }
+async function saveDictionaryLibrary(){let obj; try{obj=getDictionaryObject();}catch(e){alert('Dictionary must be valid JSON object'); return;} const body={dictionary:obj, industry:S.industry||'other', subdomain:gv('f-sub')||'', region:gv('f-region')||'', notes:'Saved from Blueprint lint definition library'}; const r=await fetch(`/api/dictionaries/${encodeURIComponent(currentDictionaryScope())}/${encodeURIComponent(currentDictionaryKey())}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}); const d=await r.json(); if(!r.ok){alert(d.detail||'Failed to save dictionary'); return;} setDictionaryStatus(`Saved ${Object.keys(obj).length} terms to ${d.scope_type}:${d.scope_key}`); const ctx=JSON.parse(localStorage.getItem('dbblueprint_domain_context')||'{}'); ctx.dictionary=obj; localStorage.setItem('dbblueprint_domain_context', JSON.stringify(ctx)); refreshDictionaryLibraries(); }
+async function refreshDictionaryLibraries(){const r=await fetch('/api/dictionaries'); const d=await r.json(); const host=document.getElementById('dict-library-list'); const items=d.items||[]; if(!items.length){host.innerHTML='<div class="alert alert-dark">No shared libraries saved yet.</div>'; return;} host.innerHTML=items.map(it=>`<div class="lib-card" onclick="loadSpecificDictionary('${it.scope_type}','${encodeURIComponent(it.scope_key)}')"><div class="t">${escapeHtml(it.scope_type)} · ${escapeHtml(it.scope_key)}</div><div class="m">${Object.keys(it.dictionary_json||{}).length} terms · ${escapeHtml(it.notes||'no notes')}</div></div>`).join(''); }
+async function loadSpecificDictionary(scopeType, scopeKeyEncoded){const scopeKey=decodeURIComponent(scopeKeyEncoded); const r=await fetch(`/api/dictionaries/${encodeURIComponent(scopeType)}/${encodeURIComponent(scopeKey)}`); if(!r.ok) return; const d=await r.json(); document.getElementById('dict-scope').value=scopeType; renderDictionaryRows(d.dictionary_json||{}); setDictionaryStatus(`Loaded ${Object.keys(d.dictionary_json||{}).length} terms from ${d.scope_type}:${d.scope_key}`); const ctx=JSON.parse(localStorage.getItem('dbblueprint_domain_context')||'{}'); ctx.dictionary=d.dictionary_json||{}; localStorage.setItem('dbblueprint_domain_context', JSON.stringify(ctx)); }
+
 // ── Analyze (SSE stream) ──────────────────────────────
 async function doAnalyze() {
   const model = document.getElementById('model-select').value;
@@ -710,6 +792,7 @@ async function doAnalyze() {
       use_dedup: true,
       subdomain: gv('f-sub'), region: gv('f-region'), hints: S.hints
     };
+    localStorage.setItem('dbblueprint_domain_context', JSON.stringify({industry: payload.industry, subdomain: payload.subdomain, region: payload.region, hints: payload.hints, dictionary: payload.dictionary || getDictionaryObject()}));
 
     const res = await fetch('/api/analyze/stream', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -912,6 +995,9 @@ function copyEl(id) {
   event.target.textContent = 'Copied!';
   setTimeout(()=>event.target.textContent='Copy',1500);
 }
+
+renderDictionaryRows({});
+refreshDictionaryLibraries();
 </script>
 </body>
 </html>

@@ -22,17 +22,20 @@ from settings import DATA_DIR
 
 # ─── Encryption key (derived from BLUEPRINT_SECRET only) ────────
 
+
 def _derive_key() -> bytes:
-    seed = os.environ.get("BLUEPRINT_SECRET", "db-blueprint-v2-local-key")
-    # FIX SEC-3: removed HOSTNAME — unstable in Docker (changes per restart).
-    # BLUEPRINT_SECRET alone is sufficient and portable across environments.
-    # FIX SEC-4: warn loudly if default weak secret is in use.
+    seed = os.environ.get("BLUEPRINT_SECRET")
+    if not seed:
+        raise ValueError(
+            "BLUEPRINT_SECRET environment variable is not set. "
+            "Set a strong secret in your .env file before storing credentials. "
+            "Example: BLUEPRINT_SECRET=$(openssl rand -hex 32)"
+        )
     if seed == "db-blueprint-v2-local-key":
-        import warnings
-        warnings.warn(
-            "BLUEPRINT_SECRET is not set — saved credentials use a weak default key. "
-            "Set BLUEPRINT_SECRET in your .env file before storing real credentials.",
-            stacklevel=2,
+        raise ValueError(
+            "BLUEPRINT_SECRET is set to the default weak value. "
+            "This is insecure for production. Set a strong secret: "
+            "BLUEPRINT_SECRET=$(openssl rand -hex 32)"
         )
     digest = hashlib.sha256(seed.encode()).digest()
     return base64.urlsafe_b64encode(digest)
@@ -61,7 +64,9 @@ def decrypt(token: str) -> str:
 DATA_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "profiles.db"
 
-engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+engine = create_engine(
+    f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False}
+)
 
 
 class Base(DeclarativeBase):
@@ -94,7 +99,10 @@ class ProfileManager:
         except ValueError as exc:
             return {}, str(exc)
         if not plaintext:
-            return {}, "Unable to decrypt stored credentials. Check that BLUEPRINT_SECRET has not changed since this profile was saved."
+            return (
+                {},
+                "Unable to decrypt stored credentials. Check that BLUEPRINT_SECRET has not changed since this profile was saved.",
+            )
         try:
             return json.loads(plaintext), None
         except json.JSONDecodeError:
@@ -106,7 +114,9 @@ class ProfileManager:
         if include_creds:
             safe_params = raw_params
         else:
-            safe_params = {k: ("••••••••" if k == "password" else v) for k, v in raw_params.items()}
+            safe_params = {
+                k: ("••••••••" if k == "password" else v) for k, v in raw_params.items()
+            }
 
         payload = {
             "id": p.id,
@@ -127,11 +137,17 @@ class ProfileManager:
     @classmethod
     def list_profiles(cls) -> list[dict]:
         with Session(engine) as s:
-            profiles = s.query(Profile).order_by(Profile.is_favourite.desc(), Profile.name).all()
+            profiles = (
+                s.query(Profile)
+                .order_by(Profile.is_favourite.desc(), Profile.name)
+                .all()
+            )
             return [cls._row_to_dict(p) for p in profiles]
 
     @classmethod
-    def get_profile(cls, profile_id: str, include_creds: bool = False) -> Optional[dict]:
+    def get_profile(
+        cls, profile_id: str, include_creds: bool = False
+    ) -> Optional[dict]:
         with Session(engine) as s:
             p = s.get(Profile, profile_id)
             if not p:
@@ -148,7 +164,14 @@ class ProfileManager:
             return params or None
 
     @classmethod
-    def create_profile(cls, name: str, db_type: str, params: dict, color: str = "#6c63ff", group_name: str = "") -> dict:
+    def create_profile(
+        cls,
+        name: str,
+        db_type: str,
+        params: dict,
+        color: str = "#6c63ff",
+        group_name: str = "",
+    ) -> dict:
         pid = str(uuid.uuid4())
         with Session(engine) as s:
             p = Profile(
